@@ -249,6 +249,7 @@ SLOT_CLEAR = 255
 GFX_MAX_BUF = LOG_W * LOG_H
 GFX_SCALE_MAX = 4
 TERM_OUT_SIZE = 131072
-// the encoder checks for room only between rows, so the slack holds the longest row: 144
-// cells of at most 45 bytes at s = 1
+// the encoder checks for room only between rows, so the slack holds the longest row: at s = 1
+// a first cell of at most 49 bytes, 143 more of at most 45, and 16 that word stores write past
+// the end, under 6.5 KB
 TERM_OUT_SLACK = 8192
