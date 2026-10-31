@@ -93,6 +93,84 @@ else
   echo "FAIL auto: no stats line, or frames and ticks off"; bad=1
 fi
 
+# at(session, time): how many capture bytes had arrived when that event fired
+at() { awk -v t="$2" '$2 == t { print $3 }' "smoke-$1.status"; }
+
+# a whole game by hand: title, ready, play, a fall to the ground, game over with a press inside
+# its lockout that must change nothing, restart, pause, resume, play again, quit. The screen at
+# each step comes from replaying the capture in a terminal emulator.
+session walk --deadline 40 --key 1.0:20 --key 1.8:20 --key 3.6:20 --key 5.0:20 --key 6.0:70 \
+  --resize 6.6:144x128 --key 7.6:70 --key 8.0:20 --key 8.6:71 -- --seed 3
+verify walk 0 ""
+for t in 1.8 5.0 6.0 6.6; do
+  timeout 60 node "$here/screen.mjs" smoke-walk.out 144 128 "smoke-walk-$t.ppm" "@$(at walk "$t")" > /dev/null
+done
+if python3 - smoke-walk "$(at walk 6.6)" "$(at walk 7.6)" <<'EOF'
+import sys
+def colours(path):
+    px = open(path, "rb").read().split(b"\n", 3)[3]
+    return {px[i:i + 3] for i in range(0, len(px), 3)}
+panel, word = bytes([238, 228, 170]), bytes([252, 168, 48])
+n, paused, resumed = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+ready, over, again = (colours(f"{n}-{t}.ppm") for t in ("1.8", "5.0", "6.0"))
+bad = []
+if word not in ready or panel in ready:
+    bad.append("no get ready screen before play")
+if panel not in over:
+    bad.append("no game over panel after the fall, or the press in the lockout restarted")
+if panel in again or word not in again:
+    bad.append("no get ready screen after the restart")
+if open(f"{n}-6.0.ppm", "rb").read() == open(f"{n}-6.6.ppm", "rb").read():
+    bad.append("pausing drew nothing")
+if resumed != paused:
+    bad.append(f"{resumed - paused} bytes written while paused")
+if len(open(f"{n}.out", "rb").read()) <= resumed:
+    bad.append("nothing drawn after resuming")
+if bad:
+    print("; ".join(bad))
+sys.exit(1 if bad else 0)
+EOF
+then echo "PASS walk: ready, play, over, lockout, restart, pause, resume"
+else echo "FAIL walk"; bad=1; fi
+
+# D shows the debug numbers in the top left corner, where nothing else is pure white
+session debug --deadline 30 --resize 1.5:144x128 --key 2.0:64 --resize 3.5:144x128 --key 4.0:71 \
+  -- --autopilot --seed 3
+verify debug 0 ""
+for t in 1.5 3.5; do
+  timeout 60 node "$here/screen.mjs" smoke-debug.out 144 128 "smoke-debug-$t.ppm" "@$(at debug "$t")" > /dev/null
+done
+if python3 - smoke-debug <<'EOF'
+import sys
+def corner_white(path):
+    b = open(path, "rb").read().split(b"\n", 3)
+    w = int(b[1].split()[0])
+    px = b[3]
+    return any(px[(y * w + x) * 3:(y * w + x) * 3 + 3] == b"\xff\xff\xff" for y in range(40) for x in range(60))
+sys.exit(0 if not corner_white(f"{sys.argv[1]}-1.5.ppm") and corner_white(f"{sys.argv[1]}-3.5.ppm") else 1)
+EOF
+then echo "PASS debug: the overlay appears after D"
+else echo "FAIL debug: no overlay after D, or white in the corner before it"; bad=1; fi
+
+# a resize mid-play repaints at the new scale with its border, then back at the first
+session resize --deadline 30 --resize 3.0:60x50 --resize 5.0:144x128 --key 7.0:71 -- --autopilot --seed 3
+verify resize 0 ""
+r1=$(at resize 3.0); r2=$(at resize 5.0)
+s3=$(timeout 60 node "$here/screen.mjs" smoke-resize.out 144 128 smoke-resize-s3.ppm "$r1:60x50" "@$r2")
+s1=$(timeout 60 node "$here/screen.mjs" smoke-resize.out 144 128 smoke-resize-s1.ppm "$r1:60x50" "$r2:144x128")
+if [ "$s3" = "screen 60x50 unpainted 0" ] && [ "$s1" = "screen 144x128 unpainted 0" ]; then
+  echo "PASS resize: $s3; $s1"
+else echo "FAIL resize: $s3; $s1"; bad=1; fi
+
+# too small: a message with the size it has and the size it needs; growing the window starts it
+session small --size 30x20 --deadline 30 --resize 2.0:48x43 --key 4.0:71 -- --seed 3
+verify small 0 ""
+grown=$(at small 2.0)
+sm=$(timeout 60 node "$here/screen.mjs" smoke-small.out 30 20 smoke-small.ppm "$grown:48x43")
+if head -c "$grown" smoke-small.out | grep -qa "terminal 30x20 is too small, the game needs 36x32" \
+  && [ "$sm" = "screen 48x43 unpainted 0" ]; then echo "PASS small: message, then $sm"
+else echo "FAIL small: $sm"; bad=1; fi
+
 # a kill leaves no chance to restore; the next session must still start and quit cleanly
 timeout 60 python3 "$here/pty_run.py" --out smoke-kill.out --deadline 20 --kill 2.0 \
   --key 1.0:20 -- "${RUNNER[@]}" ./flappy --seed 3 > smoke-kill.status
