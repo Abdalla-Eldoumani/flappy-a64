@@ -1084,7 +1084,6 @@ main_play_poll:
         ldr     x9, =tty_quit
         ldr     x9, [x9]
         cbz     x9, main_play_loop
-main_play_end:
         bl      present_close
         bl      tty_close
         ldr     x9, =main_stats
