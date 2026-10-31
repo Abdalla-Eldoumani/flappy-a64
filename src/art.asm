@@ -6,7 +6,10 @@ ART_PAL_BYTES = SLOT_COUNT * 4
 ART_NIGHT_BYTES = SLOT_PDARK * 4
 ART_BIRD_OFF = SLOT_BODY * 4
 ART_BIRD_BYTES = (SLOT_WING - SLOT_BODY + 1) * 4
-ART_PAL_SPARE = (SLOT_COUNT - SLOT_TOUT - 1) * 4
+ART_LETTERS = 26
+ART_LETTER_LAST = ART_LETTERS - 1
+ART_SYMBOL0 = ART_DIGIT0 + 10
+ART_PAL_SPARE = (SLOT_COUNT - SLOT_NEW - 1) * 4
 // one legend entry per 7-bit character code
 ART_MAP_BYTES = 128
 ART_CODE_MASK = ART_MAP_BYTES - 1
@@ -50,6 +53,11 @@ art_day:
         .byte   196, 64, 36, 0
         .byte   255, 255, 255, 0
         .byte   40, 30, 34, 0
+        .byte   238, 228, 170, 0
+        .byte   122, 88, 56, 0
+        .byte   226, 98, 58, 0
+        .byte   252, 168, 48, 0
+        .byte   222, 50, 44, 0
         .skip   ART_PAL_SPARE
 // night replaces the scenery slots, 1 to 19; the bird and text keep the day colours
 art_night:
@@ -332,6 +340,7 @@ art_font5:
         .ascii  "..+../..+../..+../..+../..+../...../..+.."
         .ascii  ".+++./+...+/....+/...+./..+../...../..+.."
         .ascii  "....+/....+/...+./..+../.+.../+..../+...."
+        .ascii  "..+../.+++./+++++/..+../..+../..+../....."
 // 3 x 5 font for scales 2 to 4, same order
         .balign 4
         .global art_font3
@@ -378,6 +387,141 @@ art_font3:
         .ascii  ".+./.+./.+./.../.+."
         .ascii  "++./..+/.+./.../.+."
         .ascii  "..+/..+/.+./+../+.."
+        .ascii  ".+./+++/.+./.+./..."
+// the symbols after the digits, in glyph order
+art_symbols:
+        .asciz  ".:-!?/^"
+// medals: one coin whose three colours the medal picks; 15, 8 and 5 square
+        .balign 4
+        .global art_medal1
+art_medal1:
+        .ascii  ".....00000....."
+        .ascii  "...003333300..."
+        .ascii  "..03322222330.."
+        .ascii  ".0344222222230."
+        .ascii  ".0342221222230."
+        .ascii  "032222111222230"
+        .ascii  "032111111111230"
+        .ascii  "032211111112230"
+        .ascii  "032221111122230"
+        .ascii  "032211222112230"
+        .ascii  ".0321222221230."
+        .ascii  ".0322222222230."
+        .ascii  "..03322222330.."
+        .ascii  "...003333300..."
+        .ascii  ".....00000....."
+        .balign 4
+        .global art_medal2
+art_medal2:
+        .ascii  "..0000.."
+        .ascii  ".033330."
+        .ascii  "03242230"
+        .ascii  "03211230"
+        .ascii  "03211230"
+        .ascii  "03222230"
+        .ascii  ".033330."
+        .ascii  "..0000.."
+        .balign 4
+        .global art_medal3
+art_medal3:
+        .ascii  ".000."
+        .ascii  "03230"
+        .ascii  "02120"
+        .ascii  "03230"
+        .ascii  ".000."
+// sparkles over the medal: 5, 3 and 1 square
+        .balign 4
+        .global art_spark1
+art_spark1:
+        .ascii  "..4.."
+        .ascii  "..4.."
+        .ascii  "44444"
+        .ascii  "..4.."
+        .ascii  "..4.."
+        .balign 4
+        .global art_spark2
+art_spark2:
+        .ascii  ".4."
+        .ascii  "444"
+        .ascii  ".4."
+        .balign 4
+        .global art_spark3
+art_spark3:
+        .ascii  "4"
+// UI words: each element's word at scales 1 to 4 in turn; an empty word skips that scale.
+// A space is a gap and an underscore starts a new line.
+        .balign 4
+        .global art_ui
+art_ui:
+        .asciz  "FLAP"
+        .asciz  "FLAP"
+        .asciz  "FLAP"
+        .asciz  "FLAP"
+        .asciz  "PRESS SPACE"
+        .asciz  "PRESS SPACE"
+        .asciz  "PRESS SPACE"
+        .asciz  "SPACE"
+        .asciz  "BEST"
+        .asciz  "BEST"
+        .asciz  "BEST"
+        .asciz  "BEST"
+        .asciz  "GET READY"
+        .asciz  "GET READY"
+        .asciz  "GET READY"
+        .asciz  "READY"
+        .asciz  "^"
+        .asciz  "^"
+        .asciz  "^"
+        .asciz  "^"
+        .asciz  "SPACE"
+        .asciz  "SPACE"
+        .asciz  "SPACE"
+        .asciz  "SPACE"
+        .asciz  "GAME OVER"
+        .asciz  "GAME OVER"
+        .asciz  "GAME OVER"
+        .asciz  "GAME_OVER"
+        .asciz  "SCORE"
+        .asciz  "SCORE"
+        .asciz  ""
+        .asciz  ""
+        .asciz  "BEST"
+        .asciz  "BEST"
+        .asciz  ""
+        .asciz  ""
+        .asciz  "MEDAL"
+        .asciz  "MEDAL"
+        .asciz  ""
+        .asciz  ""
+        .asciz  "NEW"
+        .asciz  "NEW"
+        .asciz  "NEW"
+        .asciz  ""
+        .asciz  "PAUSED"
+        .asciz  "PAUSED"
+        .asciz  "PAUSED"
+        .asciz  "PAUSED"
+        .asciz  ""
+        .asciz  "ZOOM OUT"
+        .asciz  "ZOOM OUT"
+        .asciz  "ZOOM OUT"
+// per element and scale: font (5 or 3), size k, fill slot, outline slot
+        .balign 4
+        .global art_style
+art_style:
+        .byte   5, 3, SLOT_WORD, SLOT_TOUT, 5, 2, SLOT_WORD, SLOT_TOUT, 3, 2, SLOT_WORD, SLOT_TOUT, 3, 2, SLOT_WORD, SLOT_TOUT
+        .byte   5, 1, SLOT_WHITE, SLOT_TOUT, 3, 1, SLOT_WHITE, SLOT_TOUT, 3, 1, SLOT_WHITE, SLOT_TOUT, 3, 1, SLOT_WHITE, SLOT_TOUT
+        .byte   5, 1, SLOT_WHITE, SLOT_TOUT, 3, 1, SLOT_WHITE, SLOT_TOUT, 3, 1, SLOT_WHITE, SLOT_TOUT, 3, 1, SLOT_WHITE, SLOT_TOUT
+        .byte   5, 2, SLOT_WORD, SLOT_TOUT, 5, 1, SLOT_WORD, SLOT_TOUT, 3, 1, SLOT_WORD, SLOT_TOUT, 3, 1, SLOT_WORD, SLOT_TOUT
+        .byte   5, 2, SLOT_WHITE, SLOT_TOUT, 5, 1, SLOT_WHITE, SLOT_TOUT, 3, 1, SLOT_WHITE, SLOT_TOUT, 3, 1, SLOT_WHITE, SLOT_TOUT
+        .byte   5, 1, SLOT_WHITE, SLOT_TOUT, 3, 1, SLOT_WHITE, SLOT_TOUT, 3, 1, SLOT_WHITE, SLOT_TOUT, 3, 1, SLOT_WHITE, SLOT_TOUT
+        .byte   5, 2, SLOT_WORD, SLOT_TOUT, 5, 1, SLOT_WORD, SLOT_TOUT, 3, 1, SLOT_WORD, SLOT_TOUT, 3, 1, SLOT_WORD, SLOT_TOUT
+        .byte   5, 1, SLOT_LABEL, SLOT_PANEL, 3, 1, SLOT_LABEL, SLOT_PANEL, 3, 1, SLOT_LABEL, SLOT_PANEL, 3, 1, SLOT_LABEL, SLOT_PANEL
+        .byte   5, 1, SLOT_LABEL, SLOT_PANEL, 3, 1, SLOT_LABEL, SLOT_PANEL, 3, 1, SLOT_LABEL, SLOT_PANEL, 3, 1, SLOT_LABEL, SLOT_PANEL
+        .byte   5, 1, SLOT_LABEL, SLOT_PANEL, 3, 1, SLOT_LABEL, SLOT_PANEL, 3, 1, SLOT_LABEL, SLOT_PANEL, 3, 1, SLOT_LABEL, SLOT_PANEL
+        .byte   5, 1, SLOT_WHITE, SLOT_NEW, 3, 1, SLOT_WHITE, SLOT_NEW, 3, 1, SLOT_WHITE, SLOT_NEW, 3, 1, SLOT_WHITE, SLOT_NEW
+        .byte   5, 2, SLOT_WHITE, SLOT_TOUT, 5, 1, SLOT_WHITE, SLOT_TOUT, 3, 1, SLOT_WHITE, SLOT_TOUT, 3, 1, SLOT_WHITE, SLOT_TOUT
+        .byte   5, 1, SLOT_WHITE, SLOT_TOUT, 3, 1, SLOT_WHITE, SLOT_TOUT, 3, 1, SLOT_WHITE, SLOT_TOUT, 3, 1, SLOT_WHITE, SLOT_TOUT
 
 // legends: character code, slot, ..., 0
         .balign 4
@@ -406,6 +550,10 @@ art_l_bush:
 art_l_ground:
         .byte   48, SLOT_GLINE, 49, SLOT_GRASS, 50, SLOT_GRASS2, 51, SLOT_GRASSDK
         .byte   52, SLOT_DIRT, 53, SLOT_DIRT2, 0
+        .balign 4
+        .global art_l_medal
+art_l_medal:
+        .byte   48, SLOT_TOUT, 49, SLOT_MED1, 50, SLOT_MED2, 51, SLOT_MED3, 52, SLOT_WHITE, 0
 // scaling down keeps the highest of these in each block: outlines, then eyes, then the bird
         .balign 4
         .global art_prio
@@ -525,5 +673,42 @@ art_build_colour:
         mov     w12, 1
 art_build_done:
         mov     w0, w12
+        ldp     fp, lr, [sp], 16
+        ret
+
+// art_glyph(w0 = character) -> x0 = its glyph in either font, or -1 for a gap
+        .balign 4
+        .global art_glyph
+art_glyph:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        sub     w9, w0, ART_CHAR_A
+        cmp     w9, ART_LETTER_LAST
+        b.ls    art_glyph_letter
+        sub     w9, w0, ART_CHAR_0
+        cmp     w9, ART_DIGIT_LAST
+        b.ls    art_glyph_digit
+        ldr     x10, =art_symbols
+        mov     x11, 0
+        b       art_glyph_test
+art_glyph_scan:
+        cmp     w12, w0
+        b.eq    art_glyph_sym
+        add     x11, x11, 1
+art_glyph_test:
+        ldrb    w12, [x10, x11]
+        cbnz    w12, art_glyph_scan
+        mov     x0, -1
+        b       art_glyph_done
+art_glyph_letter:
+        uxtw    x0, w9
+        b       art_glyph_done
+art_glyph_digit:
+        add     w0, w9, ART_DIGIT0
+        uxtw    x0, w0
+        b       art_glyph_done
+art_glyph_sym:
+        add     x0, x11, ART_SYMBOL0
+art_glyph_done:
         ldp     fp, lr, [sp], 16
         ret
