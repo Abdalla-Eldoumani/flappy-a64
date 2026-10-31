@@ -1,13 +1,28 @@
 #!/usr/bin/env bash
 # The game when things go wrong: a slow terminal, a stalled one, a terminal that closes, a
 # closed pipe, stdin that is not a terminal, sizes far too small and far too large, and a best
-# score file it cannot write. Each case checks how the game ends and that nothing else broke.
+# score file it cannot write. Each case checks how the game ends and that nothing else broke; a
+# failing case names the checks that failed.
 # usage, from build/: bash ../tests/harden.sh [runner]
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
 RUNNER=("$@")
 bad=0
-say() { if [ "$1" = 0 ]; then echo "PASS $2"; else echo "FAIL $2"; bad=1; fi; }
+fails=""
+
+# the player's best score is put aside for the run and put back at the end, even on an interrupt
+if [ -e .flappy_best ]; then mv .flappy_best harden-best.real; fi
+finish() {
+  if [ -d .flappy_best ]; then rmdir .flappy_best; else rm -f .flappy_best; fi
+  if [ -e harden-best.real ]; then mv harden-best.real .flappy_best; fi
+}
+trap finish EXIT
+
+fail() { fails="$fails, $1"; }
+report() {
+  if [ -z "$fails" ]; then echo "PASS $1"; else echo "FAIL $1:${fails#,}"; bad=1; fi
+  fails=""
+}
 
 # a pty session; prints pty_run's report, the capture lands in harden-NAME.out
 run() {
@@ -17,17 +32,41 @@ run() {
   shift
   timeout 120 python3 "$here/pty_run.py" --out "harden-$name.out" "${opts[@]}" -- "$@"
 }
-status() { awk '$1 == "status" { print $2 }' <<< "$1"; }
+# the exit status pty_run reported, or "none" when it reported nothing
+status() { awk '$1 == "status" { print $2; f = 1 } END { if (!f) print "none" }' <<< "$1"; }
+# how many capture bytes had arrived when the key at time T went in
+keyat() { awk -v t="$2" '$1 == "key" && $2 == t { print $3 }' <<< "$1"; }
 
-# true when the capture ends with the restore sequence, and, given a byte, contains it
-ends_clean() {
-  python3 - "$1" "${2:-}" <<'EOF'
-import sys
-d = open(sys.argv[1], "rb").read()
+# a check on a capture, in python: ends: it ends with the restore sequence; whole: every frame
+# that opened synchronized output closed it, and nothing was cut (no CAN); recover: a frame was
+# cut, CAN and ESC[0m follow, and the next frame clears the screen and paints every cell of
+# COLSxROWS; has: it holds the bytes HEX; after: the restore starts at or after byte N
+cap() {
+  python3 - "$@" <<'EOF'
+import re, sys
+what, path = sys.argv[1], sys.argv[2]
+d = open(path, "rb").read()
 r = b"\x1b[?1006l\x1b[?1000l\x1b[?7h\x1b[?25h\x1b[?1049l\x1b[0m"
-ok = d.endswith(r)
-if sys.argv[2]:
-    ok = ok and bytes.fromhex(sys.argv[2]) in d
+on, off = b"\x1b[?2026h", b"\x1b[?2026l"
+ok = False
+if what == "ends":
+    ok = d.endswith(r)
+elif what == "whole":
+    ok = d.count(on) == d.count(off) > 0 and b"\x18" not in d
+elif what == "recover":
+    cols, rows = map(int, sys.argv[3].split("x"))
+    i = d.find(b"\x18")
+    if i > 0 and d[i:i + 5] == b"\x18\x1b[0m":
+        s = d.find(on, i)
+        e = d.find(off, s)
+        frame = d[s:e] if s > 0 and e > 0 else b""
+        text = re.sub(rb"\x1b\[[0-9;?]*[@-~]", b"", frame)
+        cells = text.count(b" ") + text.count(b"\xe2\x96")
+        ok = b"\x1b[2J" in frame and cells >= cols * rows
+elif what == "has":
+    ok = bytes.fromhex(sys.argv[3]) in d
+elif what == "after":
+    ok = d.find(r) >= int(sys.argv[3])
 sys.exit(0 if ok else 1)
 EOF
 }
@@ -39,61 +78,87 @@ painted() {
 }
 
 # slow terminal: 256 bytes every 5 ms is far below what play writes, so writes come back short
-# or with EAGAIN; the game falls behind, drops ticks, and still quits cleanly
+# or with EAGAIN; every frame must still arrive whole, and the game quits cleanly
 r=$(run slow --size 48x43 --deadline 60 --read-size 256 --read-delay 5 \
   --key 1.0:20 --key 2.0:20 --key 6.0:71 -- "${RUNNER[@]}" ./flappy --autopilot --seed 3)
-ends_clean harden-slow.out; e=$?
-painted slow 48 43; p=$?
-say $(( $(status "$r") != 0 || e || p )) "slow terminal: status $(status "$r"), clean end, every cell painted"
+s=$(status "$r")
+[ "$s" = 0 ] || fail "status $s"
+cap ends harden-slow.out || fail "no restore at the end"
+cap whole harden-slow.out || fail "a frame did not arrive whole"
+painted slow 48 43 || fail "cells left unpainted"
+report "slow terminal: short writes and EAGAIN, every frame whole, clean end"
 
-# stalled terminal: nothing is read for 4 s, so a frame cannot finish within the 2 s cap; the
-# next frame must start with CAN and ESC[0m and repaint everything
-r=$(run stall --size 48x43 --deadline 60 --stall 2.0:4 \
-  --key 1.0:20 --key 9.0:71 -- "${RUNNER[@]}" ./flappy --autopilot --seed 3)
-ends_clean harden-stall.out 181b5b306d; e=$?
-painted stall 48 43; p=$?
-say $(( $(status "$r") != 0 || e || p )) "stalled terminal: status $(status "$r"), CAN then a repaint, clean end"
+# stalled terminal: nothing is read for 8 s, well past the 2,000 waits of 1 ms that end a frame
+# early; the next frame must start with CAN and ESC[0m and repaint the whole screen
+r=$(run stall --size 48x43 --deadline 60 --stall 2.0:8 \
+  --key 1.0:20 --key 13.0:71 -- "${RUNNER[@]}" ./flappy --autopilot --seed 3)
+s=$(status "$r")
+[ "$s" = 0 ] || fail "status $s"
+cap ends harden-stall.out || fail "no restore at the end"
+cap recover harden-stall.out 48x43 || fail "no CAN with a full repaint after the stall"
+painted stall 48 43 || fail "cells left unpainted"
+report "stalled terminal: a frame cut, then CAN, ESC[0m and a full repaint, clean end"
 
 # the terminal closes: with SIGHUP ignored, the next write returns EIO and the game exits 0
 # without a word; with SIGHUP as it comes, the signal ends it first
 r=$(run eio --size 48x43 --deadline 20 --close 2.0 -- \
   sh -c 'trap "" HUP; exec "$@"' sh "${RUNNER[@]}" ./flappy --autopilot --seed 3)
-say $(( $(status "$r") != 0 )) "terminal closed, SIGHUP ignored: status $(status "$r") from EIO"
+s=$(status "$r")
+[ "$s" = 0 ] || fail "status $s"
+report "terminal closed with SIGHUP ignored: EIO, status 0"
 r=$(run hup --size 48x43 --deadline 20 --close 2.0 -- "${RUNNER[@]}" ./flappy --autopilot --seed 3)
 s=$(status "$r")
-say $(( s != -1 && s != 0 )) "terminal closed: status $s (-1 is SIGHUP)"
+[ "$s" = -1 ] || fail "status $s"
+report "terminal closed: SIGHUP ends it, status -1"
 
 # a closed pipe: SIGPIPE ends the game with 141, and the best score file is left as it was
-had=0
-if [ -e .flappy_best ]; then cp .flappy_best harden-best.keep; had=1; fi
+echo 5 > .flappy_best
 timeout 60 "${RUNNER[@]}" ./flappy --render-out --ticks 600 --autopilot --seed 7 --size 144x128 | head -c 1000 > /dev/null
 s=${PIPESTATUS[0]}
-same=0
-if [ $had = 1 ]; then cmp -s .flappy_best harden-best.keep || same=1; fi
-say $(( s != 141 || same )) "closed pipe: status $s, best score file unchanged"
+[ "$s" = 141 ] || fail "status $s"
+[ "$(cat .flappy_best)" = 5 ] || fail "best score file changed"
+rm -f .flappy_best
+report "closed pipe: status 141, best score file unchanged"
 
 # stdin not a terminal: one line on stderr, status 2
 timeout 20 "${RUNNER[@]}" ./flappy < /dev/null > harden-notty.out 2> harden-notty.err
 s=$?
-grep -q "stdin is not a terminal" harden-notty.err; g=$?
-say $(( s != 2 || g || $(wc -l < harden-notty.err) != 1 )) "stdin not a terminal: status $s, $(wc -l < harden-notty.err) line on stderr"
+[ "$s" = 2 ] || fail "status $s"
+[ "$(wc -l < harden-notty.err)" = 1 ] || fail "stderr is not one line"
+grep -q "stdin is not a terminal" harden-notty.err || fail "no message"
+[ -s harden-notty.out ] && fail "wrote to stdout"
+report "stdin not a terminal: status 2, one line on stderr"
 
-# sizes: 1x1 shows the notice and waits for q; 2000x2000 is taken as 999x999 and plays
+# 1x1: the notice starts with the size the terminal has (one row holds only that first line),
+# and the game waits for q
 r=$(run tiny --size 144x128 --deadline 20 --key 2.0:71 -- "${RUNNER[@]}" ./flappy --size 1x1)
-ends_clean harden-tiny.out; e=$?
-say $(( $(status "$r") != 0 || e )) "--size 1x1: status $(status "$r"), clean end"
-r=$(run huge --size 144x128 --deadline 20 --key 1.0:20 --key 3.0:71 -- "${RUNNER[@]}" ./flappy --size 2000x2000 --autopilot)
-ends_clean harden-huge.out; e=$?
-say $(( $(status "$r") != 0 || e )) "--size 2000x2000: status $(status "$r"), clean end"
+s=$(status "$r")
+[ "$s" = 0 ] || fail "status $s"
+cap ends harden-tiny.out || fail "no restore at the end"
+cap has harden-tiny.out "$(printf 'terminal is 1x1' | od -An -tx1 | tr -d ' \n')" || fail "no size it has"
+cap after harden-tiny.out "$(keyat "$r" 2.0)" || fail "quit before the q"
+report "--size 1x1: the notice, waits for q, clean end"
 
-# a best score file that cannot be written: a directory in its place; runs that end still exit 0
-moved=0
-if [ -e .flappy_best ]; then mv .flappy_best harden-best.real; moved=1; fi
+# 2000x2000 is taken as 999x999, the size the decimal table reaches: the s = 1 picture (144 x
+# 128 cells) is centred there, so the first cell goes to row 436, column 428
+r=$(run huge --size 144x128 --deadline 20 --key 1.0:20 --key 3.0:71 -- "${RUNNER[@]}" ./flappy --size 2000x2000 --autopilot)
+s=$(status "$r")
+[ "$s" = 0 ] || fail "status $s"
+cap ends harden-huge.out || fail "no restore at the end"
+cap has harden-huge.out "$(printf '\033[436;428H' | od -An -tx1 | tr -d ' \n')" || fail "not centred in 999x999"
+report "--size 2000x2000: clamped to 999x999, clean end"
+
+# a best score file that cannot be written: a directory in its place, since chmod means nothing
+# to root, which WSL runs as; the run still exits 0 and nothing replaces the directory. The same
+# run with no file then writes one, so the first run did reach a new best and tried to write it.
 mkdir .flappy_best
 timeout 60 "${RUNNER[@]}" ./flappy --render-out --ticks 1500 --autopilot --seed 7 --size 48x43 > /dev/null
 s=$?
-[ -d .flappy_best ]; d=$?
+[ "$s" = 0 ] || fail "status $s"
+[ -d .flappy_best ] || fail "the directory was replaced"
 rmdir .flappy_best
-if [ $moved = 1 ]; then mv harden-best.real .flappy_best; fi
-say $(( s != 0 || d )) "best score file not writable: status $s, nothing replaced it"
+timeout 60 "${RUNNER[@]}" ./flappy --render-out --ticks 1500 --autopilot --seed 7 --size 48x43 > /dev/null
+grep -qx '[1-9][0-9]*' .flappy_best 2> /dev/null || fail "the same run writes no best, so nothing was tried"
+rm -f .flappy_best
+report "best score file not writable: status 0, nothing replaced it, a write was tried"
 exit $bad
