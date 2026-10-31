@@ -11,6 +11,9 @@ define(term_curc_r, x25)
 define(term_pfg_r, x26)
 define(term_pbg_r, x27)
 define(term_cells_r, x28)
+define(term_bb_r, x5)
+define(term_fb_r, x6)
+define(term_rdw_r, x7)
 define(term_s_r, x19)
 define(term_c_r, x20)
 define(term_r_r, x21)
@@ -877,34 +880,40 @@ term_pf_room:
         ldr     x10, [sp, present_frame_ox]
         sub     term_curc_r, x9, x10
 term_pf_cols:
+        // the row's bottom pixel rows and the display width stay in caller-saved registers,
+        // since nothing in the row calls out
+        add     term_bb_r, term_bt_r, term_stride_r
+        add     term_fb_r, term_ft_r, term_stride_r
+        ldr     term_rdw_r, [sp, present_frame_dw]
         mov     term_col_r, 0
 term_pf_block:
-        // a byte of the mask per cell, set where either pixel row changed; with no front
-        // buffer every cell is sent
-        mov     term_diff_r, TERM_UNKNOWN
-        cbz     term_ft_r, term_pf_edge
+        cbz     term_ft_r, term_pf_all
+        // eight cells at a time: both pixel rows unchanged means nothing to send
         ldr     x10, [term_bt_r, term_col_r]
         ldr     x11, [term_ft_r, term_col_r]
+        ldr     x12, [term_bb_r, term_col_r]
+        ldr     x13, [term_fb_r, term_col_r]
+        cmp     x10, x11
+        ccmp    x12, x13, 0, eq
+        b.eq    term_pf_bnext
+        // a byte of the mask per cell, set where either pixel row changed
         eor     term_diff_r, x10, x11
-        add     x12, term_bt_r, term_stride_r
-        ldr     x10, [x12, term_col_r]
-        add     x12, term_ft_r, term_stride_r
-        ldr     x11, [x12, term_col_r]
-        eor     x10, x10, x11
-        orr     term_diff_r, term_diff_r, x10
-        cbz     term_diff_r, term_pf_bnext
+        eor     x12, x12, x13
+        orr     term_diff_r, term_diff_r, x12
+        b       term_pf_edge
+term_pf_all:
+        // with no front buffer every cell is sent
+        mov     term_diff_r, TERM_UNKNOWN
 term_pf_edge:
         // the last block can reach past the display's right edge into the row padding
-        ldr     x9, [sp, present_frame_dw]
-        sub     x9, x9, term_col_r
+        sub     x9, term_rdw_r, term_col_r
         cmp     x9, TERM_BLOCK
-        b.ge    term_pf_some
+        b.ge    term_pf_cell
         lsl     x9, x9, 3
         mov     x10, 1
         lsl     x10, x10, x9
         sub     x10, x10, 1
         and     term_diff_r, term_diff_r, x10
-term_pf_some:
         cbz     term_diff_r, term_pf_bnext
 term_pf_cell:
         // the lowest set byte is the next changed cell; clearing it moves on to the one after
@@ -916,8 +925,7 @@ term_pf_cell:
         bic     term_diff_r, term_diff_r, x10
         add     x9, term_col_r, x9, lsr 3
         ldrb    w10, [term_bt_r, x9]
-        add     x12, term_bt_r, term_stride_r
-        ldrb    w11, [x12, x9]
+        ldrb    w11, [term_bb_r, x9]
         add     term_cells_r, term_cells_r, 1
         // a cursor to the left in this row moves forward, which is never longer than going
         // there by row and column; anything else goes by row and column
@@ -1043,8 +1051,7 @@ term_pf_sent:
         cbnz    term_diff_r, term_pf_cell
 term_pf_bnext:
         add     term_col_r, term_col_r, TERM_BLOCK
-        ldr     x9, [sp, present_frame_dw]
-        cmp     term_col_r, x9
+        cmp     term_col_r, term_rdw_r
         b.lt    term_pf_block
         // the next row and the next frame start from where this row left the cursor
         cmp     term_curc_r, TERM_FAR
