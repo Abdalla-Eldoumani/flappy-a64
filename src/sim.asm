@@ -297,7 +297,8 @@ sim_hit_pipe:
         add     x0, x15, SIM_CAP_X1
         cmp     x0, SIM_BIRD_X
         b.lt    sim_hit_next
-        // cap span: columns x .. x+25 as bits of the bird row word
+        // the cap overhangs the body by a pixel each side, so a pipe tests two column spans,
+        // each as bits of the bird's row word so one AND against the mask decides the row
         sub     x1, x15, SIM_BIRD_X
         cmp     x1, 0
         csel    x1, x1, xzr, ge
@@ -313,7 +314,6 @@ sim_hit_pipe:
         sub     x3, x3, x4
         cmp     x1, x2
         csel    x3, x3, xzr, le
-        // body span: columns x+1 .. x+24
         add     x1, x15, 1
         sub     x1, x1, SIM_BIRD_X
         cmp     x1, 0
