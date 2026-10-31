@@ -990,7 +990,7 @@ gfx_pipe_rows:
         mov     x0, x3
         mov     x1, x4
         bl      gfx_clip
-        cbz     x1, gfx_pipe_done
+        cbz     x1, gfx_prows_done
         mov     gfx_x_r, x0
         mov     gfx_k_r, x1
         add     gfx_src_r, gfx_src_r, x2
@@ -1001,8 +1001,8 @@ gfx_pipe_rows:
         // rows above the top edge are skipped, but the source still advances past them
         sub     x9, gfx_row_r, gfx_y_r
         madd    gfx_src_r, x9, gfx_n_r, gfx_src_r
-        b       gfx_pipe_test
-gfx_pipe_row:
+        b       gfx_prows_test
+gfx_prows_row:
         madd    x0, gfx_row_r, gfx_s_r, gfx_buf_r
         add     x0, x0, gfx_x_r
         mov     x1, gfx_src_r
@@ -1010,10 +1010,10 @@ gfx_pipe_row:
         bl      gfx_span
         add     gfx_src_r, gfx_src_r, gfx_n_r
         add     gfx_row_r, gfx_row_r, 1
-gfx_pipe_test:
+gfx_prows_test:
         cmp     gfx_row_r, gfx_h_r
-        b.lt    gfx_pipe_row
-gfx_pipe_done:
+        b.lt    gfx_prows_row
+gfx_prows_done:
         ldp     x19, x20, [sp, 16]
         ldp     x21, x23, [sp, 32]
         ldp     x24, x25, [sp, 48]
