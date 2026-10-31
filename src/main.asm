@@ -607,9 +607,12 @@ main_status:
         ret
 
 // main_headless(): the simulation alone, no terminal and no art
+main_headless_alloc = -(16 + 16 + 8) & -16
+main_headless_dealloc = 0 - main_headless_alloc
+main_headless_end = 32
         .balign 4
 main_headless:
-        stp     fp, lr, [sp, -32]!
+        stp     fp, lr, [sp, main_headless_alloc]!
         mov     fp, sp
         stp     x22, x28, [sp, 16]
         bl      main_seed_sim
@@ -649,9 +652,9 @@ main_hl_test:
         bl      main_fmt_dec
         mov     w9, 32
         strb    w9, [x0], 1
-        str     x0, [sp, main_line_end]
+        str     x0, [sp, main_headless_end]
         bl      sim_hash
-        ldr     x1, [sp, main_line_end]
+        ldr     x1, [sp, main_headless_end]
         bl      main_fmt_hex
         mov     w9, 10
         strb    w9, [x0], 1
@@ -660,7 +663,7 @@ main_hl_test:
         ldr     x1, =main_line
         bl      main_write
         ldp     x22, x28, [sp, 16]
-        ldp     fp, lr, [sp], 32
+        ldp     fp, lr, [sp], main_headless_dealloc
         ret
 
 // main_dump(x0 = tick): writes the composed frame as dir/tick.ppm when the list asks for it
