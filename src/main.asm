@@ -1079,7 +1079,9 @@ main_bench:
         mov     x0, LOG_W
         mov     x1, LOG_H
         bl      present_open
-        cbz     w0, main_render_small
+        cbnz    w0, main_bench_fits
+        bl      main_small
+main_bench_fits:
         bl      gfx_setup
         bl      main_buffers
         // the screen set-up is not a frame
@@ -1176,7 +1178,9 @@ main_render:
         mov     x0, LOG_W
         mov     x1, LOG_H
         bl      present_open
-        cbz     w0, main_render_small
+        cbnz    w0, main_render_fits
+        bl      main_small
+main_render_fits:
         bl      gfx_setup
         bl      main_buffers
         mov     main_t_r, 0
@@ -1225,7 +1229,12 @@ main_render_test:
         ldp     x22, x28, [sp, 16]
         ldp     fp, lr, [sp], main_render_dealloc
         ret
-main_render_small:
+
+// main_small(): no scale fits the terminal: one line on stderr, then exit 2
+        .balign 4
+main_small:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
         mov     w0, 2
         ldr     x1, =main_e_small
         mov     x2, MAIN_E_SMALL_LEN
