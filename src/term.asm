@@ -14,13 +14,27 @@ define(term_k_r, x28)
 define(term_s_r, x19)
 define(term_c_r, x20)
 define(term_r_r, x21)
+define(term_n_r, x19)
+define(term_top_r, x19)
+define(term_bot_r, x20)
+define(term_trow_r, x21)
+define(term_tcol_r, x22)
+define(term_nfg_r, x23)
+define(term_nbg_r, x24)
 
 TERM_REC = 24
 TERM_UNKNOWN = -1
 TERM_SIZE_CAP = 999
 TERM_GUESS_C = 80
 TERM_GUESS_R = 24
-TERM_OUT_LIMIT = 126976
+TERM_OUT_LIMIT = TERM_OUT_SIZE - TERM_OUT_SLACK
+TERM_BREATH_CELLS = 800
+TERM_MS = 1000000
+term_cell_alloc = -(16 + 48 + 24) & -16
+term_cell_dealloc = 0 - term_cell_alloc
+term_cell_fgo = 64
+term_cell_bgo = 72
+term_cell_glypho = 80
 
         .section .rodata
 term_s_setup:
@@ -64,11 +78,10 @@ term_s_clear:
         .byte   27
         .ascii  "[1;1H"
 term_s_clear_end:
+// full block, upper half, lower half: three UTF-8 bytes each, indexed by glyph
 term_g_full:
         .byte   0xE2, 0x96, 0x88
-term_g_upper:
         .byte   0xE2, 0x96, 0x80
-term_g_lower:
         .byte   0xE2, 0x96, 0x84
 term_s_small:
         .ascii  "terminal "
@@ -96,6 +109,7 @@ term_fg:        .skip   1536
 term_bg:        .skip   1536
 term_dec:       .skip   4000
 term_len:       .skip   8
+        .balign 8
         .global term_total
 term_total:     .skip   8
 term_pen_fg:    .skip   8
@@ -113,12 +127,14 @@ term_dw:        .skip   8
 term_dh:        .skip   8
 term_stride:    .skip   8
 term_crows:     .skip   8
+        .balign 8
         .global term_cols
         .global term_rows
 term_cols:      .skip   8
 term_rows:      .skip   8
 term_ox:        .skip   8
 term_oy:        .skip   8
+term_work:      .skip   8
 
         .text
 
@@ -377,6 +393,7 @@ term_open_size:
         mov     x0, TERM_GUESS_C
         mov     x1, TERM_GUESS_R
 term_open_have:
+        // shortcut: the decimal table ends at 999, so a larger size is clamped; widen it if that bites
         mov     x9, TERM_SIZE_CAP
         cmp     x0, x9
         csel    x0, x0, x9, le
@@ -437,7 +454,7 @@ term_open_fit:
         ldr     x9, =term_full
         mov     x10, 1
         str     x10, [x9]
-        mov     w0, w19
+        mov     x0, term_s_r
 term_open_done:
         ldp     x19, x20, [sp, 16]
         ldr     x21, [sp, 32]
@@ -504,13 +521,13 @@ term_move:
         cmp     x11, term_c_r
         b.eq    term_move_done
         b.gt    term_move_abs
-        sub     x19, term_c_r, x11
+        sub     term_n_r, term_c_r, x11
         // bytes: ESC [ n C against ESC [ r ; c H
         ldr     x12, =term_dec
-        add     x13, x12, x19, lsl 2
+        add     x13, x12, term_n_r, lsl 2
         ldrb    w13, [x13]
         add     x13, x13, 3
-        cmp     x19, 1
+        cmp     term_n_r, 1
         b.ne    term_move_cost
         mov     x13, 3
 term_move_cost:
@@ -523,9 +540,9 @@ term_move_cost:
         cmp     x13, x14
         b.gt    term_move_abs
         bl      term_putesc
-        cmp     x19, 1
+        cmp     term_n_r, 1
         b.eq    term_move_cuf
-        mov     x0, x19
+        mov     x0, term_n_r
         bl      term_putdec
 term_move_cuf:
         mov     w0, 67
@@ -550,15 +567,15 @@ term_move_done:
 // term_cell(w0 = top slot, w1 = bottom slot, x2 = row, x3 = col): one changed cell
         .balign 4
 term_cell:
-        stp     fp, lr, [sp, -96]!
+        stp     fp, lr, [sp, term_cell_alloc]!
         mov     fp, sp
         stp     x19, x20, [sp, 16]
         stp     x21, x22, [sp, 32]
         stp     x23, x24, [sp, 48]
-        mov     w19, w0
-        mov     w20, w1
-        mov     x21, x2
-        mov     x22, x3
+        mov     term_top_r, x0
+        mov     term_bot_r, x1
+        mov     term_trow_r, x2
+        mov     term_tcol_r, x3
         // flushing between cells keeps every write on whole sequences
         ldr     x9, =term_len
         ldr     x9, [x9]
@@ -576,81 +593,81 @@ term_cell_room:
         mov     x1, 8
         bl      term_put
 term_cell_synced:
-        mov     x0, x21
-        mov     x1, x22
+        mov     x0, term_trow_r
+        mov     x1, term_tcol_r
         bl      term_move
-        // pick the glyph that reuses the pen: x23 = new fg, x24 = new bg, x9 = glyph
+        // the glyph follows the pen, so most cells need no colour code at all
         ldr     x10, =term_pen_fg
         ldr     x10, [x10]
         ldr     x11, =term_pen_bg
         ldr     x11, [x11]
-        mov     x23, x10
-        mov     x24, x11
-        cmp     w19, w20
+        mov     term_nfg_r, x10
+        mov     term_nbg_r, x11
+        cmp     term_top_r, term_bot_r
         b.ne    term_cell_split
         mov     x9, 0
-        cmp     x11, x19
+        cmp     x11, term_top_r
         b.eq    term_cell_colour
         mov     x9, 1
-        cmp     x10, x19
+        cmp     x10, term_top_r
         b.eq    term_cell_colour
         mov     x9, 0
-        mov     x24, x19
+        mov     term_nbg_r, term_top_r
         b       term_cell_colour
 term_cell_split:
-        cmp     x10, x19
+        cmp     x10, term_top_r
         cset    x12, ne
-        cmp     x11, x20
+        cmp     x11, term_bot_r
         cinc    x12, x12, ne
-        cmp     x10, x20
+        cmp     x10, term_bot_r
         cset    x13, ne
-        cmp     x11, x19
+        cmp     x11, term_top_r
         cinc    x13, x13, ne
         cmp     x12, x13
         b.gt    term_cell_lower
         mov     x9, 2
-        mov     x23, x19
-        mov     x24, x20
+        mov     term_nfg_r, term_top_r
+        mov     term_nbg_r, term_bot_r
         b       term_cell_colour
 term_cell_lower:
         mov     x9, 3
-        mov     x23, x20
-        mov     x24, x19
+        mov     term_nfg_r, term_bot_r
+        mov     term_nbg_r, term_top_r
 term_cell_colour:
-        str     x9, [sp, 80]
-        cmp     x23, x10
+        str     x9, [sp, term_cell_glypho]
+        cmp     term_nfg_r, x10
         cset    x12, ne
-        cmp     x24, x11
+        cmp     term_nbg_r, x11
         cset    x13, ne
         orr     x14, x12, x13
         cbz     x14, term_cell_glyph
-        str     x13, [sp, 72]
-        str     x12, [sp, 64]
+        str     x13, [sp, term_cell_bgo]
+        str     x12, [sp, term_cell_fgo]
         bl      term_putesc
-        ldr     x12, [sp, 64]
+        ldr     x12, [sp, term_cell_fgo]
         cbz     x12, term_cell_bgonly
         ldr     x0, =term_fg
         mov     x9, TERM_REC
-        madd    x0, x23, x9, x0
+        madd    x0, term_nfg_r, x9, x0
         bl      term_putrec
-        ldr     x13, [sp, 72]
+        ldr     x13, [sp, term_cell_bgo]
         cbz     x13, term_cell_cend
         mov     w0, 59
         bl      term_putc
 term_cell_bgonly:
         ldr     x0, =term_bg
         mov     x9, TERM_REC
-        madd    x0, x24, x9, x0
+        madd    x0, term_nbg_r, x9, x0
         bl      term_putrec
 term_cell_cend:
         mov     w0, 109
         bl      term_putc
         ldr     x9, =term_pen_fg
-        str     x23, [x9]
+        str     term_nfg_r, [x9]
         ldr     x9, =term_pen_bg
-        str     x24, [x9]
+        str     term_nbg_r, [x9]
 term_cell_glyph:
-        ldr     x9, [sp, 80]
+        ldr     x9, [sp, term_cell_glypho]
         cbnz    x9, term_cell_block
         mov     w0, 32
         bl      term_putc
@@ -665,13 +682,13 @@ term_cell_block:
 term_cell_moved:
         // with autowrap off the cursor stays put on the last column
         ldr     x9, =term_cur_r
-        str     x21, [x9]
-        add     x10, x22, 1
+        str     term_trow_r, [x9]
+        add     x10, term_tcol_r, 1
         ldr     x11, =term_cur_c
         str     x10, [x11]
         ldr     x12, =term_cols
         ldr     x12, [x12]
-        cmp     x22, x12
+        cmp     term_tcol_r, x12
         b.lt    term_cell_done
         mov     x10, TERM_UNKNOWN
         str     x10, [x9]
@@ -679,7 +696,28 @@ term_cell_done:
         ldp     x19, x20, [sp, 16]
         ldp     x21, x22, [sp, 32]
         ldp     x23, x24, [sp, 48]
-        ldp     fp, lr, [sp], 96
+        ldp     fp, lr, [sp], term_cell_dealloc
+        ret
+
+// term_breathe(): in the playground a long repaint must sleep 1 ms every 200,000 steps or it is stopped
+        .balign 4
+term_breathe:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =main_pace
+        ldr     x9, [x9]
+        cbz     x9, term_breathe_done
+        ldr     x9, =term_work
+        ldr     x10, [x9]
+        add     x10, x10, 1
+        str     x10, [x9]
+        cmp     x10, TERM_BREATH_CELLS
+        b.lt    term_breathe_done
+        str     xzr, [x9]
+        ldr     x0, =TERM_MS
+        bl      tty_sleep
+term_breathe_done:
+        ldp     fp, lr, [sp], 16
         ret
 
 // present_frame(x0 = back, x1 = stride, x2 = palette, w3 = flags; bit 0 means the palette changed)
@@ -807,6 +845,7 @@ term_pf_send:
         ldr     x3, [x12]
         add     x3, x3, x9
         bl      term_cell
+        bl      term_breathe
 term_pf_knext:
         add     term_k_r, term_k_r, 1
         cmp     term_k_r, 8
