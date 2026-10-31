@@ -4,6 +4,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import xterm from '@xterm/headless';
+import { halves } from './cells.mjs';
 const { Terminal } = xterm;
 
 const [stream, idxPath, dumpDir, colsArg, rowsArg] = process.argv.slice(2);
@@ -47,21 +48,13 @@ for (const t of dumps) {
     const line = buf.getLine(oy + r);
     for (let c = 0; c < w; c++) {
       const cell = line.getCell(ox + c);
-      const ch = cell.getChars();
-      const fg = cell.isFgRGB() ? cell.getFgColor() : -1;
-      const bg = cell.isBgRGB() ? cell.getBgColor() : -1;
-      let top, bottom;
-      if (ch === ' ' || ch === '') { top = bg; bottom = bg; }
-      else if (ch === '█') { top = fg; bottom = fg; }
-      else if (ch === '▀') { top = fg; bottom = bg; }
-      else if (ch === '▄') { top = bg; bottom = fg; }
-      else { top = bottom = -2; }
+      const [top, bottom] = halves(cell);
       cells++;
       const wt = rgb(c, 2 * r), wb = rgb(c, 2 * r + 1);
       if (top !== wt || bottom !== wb) {
         mismatches++;
         if (shown++ < 5) {
-          console.log(`tick ${t} cell ${r},${c} char ${JSON.stringify(ch)} got ${top.toString(16)}/${bottom.toString(16)} want ${wt.toString(16)}/${wb.toString(16)}`);
+          console.log(`tick ${t} cell ${r},${c} char ${JSON.stringify(cell.getChars())} got ${top.toString(16)}/${bottom.toString(16)} want ${wt.toString(16)}/${wb.toString(16)}`);
         }
       }
     }
