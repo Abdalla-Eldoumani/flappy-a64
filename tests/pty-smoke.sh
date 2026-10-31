@@ -45,6 +45,28 @@ session keys --deadline 30 --key 1.0:20 --key 2.0:20 --key 2.4:77 --key 2.8:1b5b
   --key 3.2:1b5b3c303b31303b31304d --key 3.6:70 --key 4.2:70 --key 4.6:71 -- --seed 3
 verify keys 0 ""
 
+# each flap key alone must leave the title and keep a run going: pipes, and so the pipe body
+# colour of the day palette, reach the screen only in play. x is the control that must not.
+pipe='112;190;48'
+flapkey() {
+  local name=$1 hex=$2 want=$3
+  session "$name" --deadline 30 --key 1.0:$hex --key 1.6:$hex --key 2.1:$hex --key 2.6:$hex \
+    --key 3.1:$hex --key 3.6:$hex --key 4.2:71 -- --seed 3
+  verify "$name" 0 ""
+  local got=0
+  grep -qa "$pipe" "smoke-$name.out" && got=1
+  if [ $got = $want ]; then echo "PASS $name reaches play: $got"
+  else echo "FAIL $name reaches play: $got, want $want"; bad=1; fi
+}
+flapkey key-space 20 1
+flapkey key-w 77 1
+flapkey key-K 4b 1
+flapkey key-cr 0d 1
+flapkey key-lf 0a 1
+flapkey key-up 1b5b41 1
+flapkey key-click 1b5b3c303b31303b31304d 1
+flapkey key-x 78 0
+
 session ctrlc --deadline 30 --key 1.0:20 --key 2.0:20 --key 2.5:03 -- --seed 3
 verify ctrlc 0 ""
 
