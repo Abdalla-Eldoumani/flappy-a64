@@ -5,12 +5,8 @@ define(sim_s_r, x19)
 define(sim_press_r, w20)
 define(sim_flap_r, w21)
 define(sim_i_r, x22)
+define(sim_n_r, x19)
 
-SIM_Y0_Q8 = 31232
-SIM_BIRD_X1 = 44
-SIM_CAP_X1 = 25
-SIM_AP_OVER = 120
-SIM_NEXT_X = 3
 SIM_RNG_ZERO = 0x9E3779B97F4A7C15
 SIM_RNG_MUL = 0x2545F4914F6CDD1D
 SIM_FNV_BASIS = 0xcbf29ce484222325
@@ -26,6 +22,7 @@ sim_mask:
         .word   0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF
         .word   0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF
         .word   0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF
+        .balign 4
         .global sim_wingframe
 sim_wingframe:
         .byte   0, 1, 2, 1
@@ -59,11 +56,11 @@ sim_rand:
 sim_pick:
         stp     fp, lr, [sp, -32]!
         mov     fp, sp
-        str     x19, [sp, 16]
-        mov     x19, x0
+        str     sim_n_r, [sp, 16]
+        mov     sim_n_r, x0
         bl      sim_rand
-        umulh   x0, x0, x19
-        ldr     x19, [sp, 16]
+        umulh   x0, x0, sim_n_r
+        ldr     sim_n_r, [sp, 16]
         ldp     fp, lr, [sp], 32
         ret
 
@@ -72,11 +69,11 @@ sim_pick:
 sim_pick_look:
         stp     fp, lr, [sp, -16]!
         mov     fp, sp
-        mov     x0, 2
+        mov     x0, SIM_THEMES
         bl      sim_pick
         ldr     x9, =sim_s
         str     x0, [x9, SIM_THEME]
-        mov     x0, 3
+        mov     x0, SIM_COLOURS
         bl      sim_pick
         ldr     x9, =sim_s
         str     x0, [x9, SIM_BIRDC]
@@ -283,7 +280,7 @@ sim_hit_test:
         ldr     x11, [x9, SIM_WING]
         ldr     x12, =sim_wingframe
         ldrb    w11, [x12, x11]
-        mov     x12, 48
+        mov     x12, SIM_MASK_BYTES
         mul     x11, x11, x12
         ldr     x12, =sim_mask
         add     x12, x12, x11
@@ -300,8 +297,9 @@ sim_hit_pipe:
         sub     x1, x15, SIM_BIRD_X
         cmp     x1, 0
         csel    x1, x1, xzr, ge
-        sub     x2, x15, 3
-        mov     x3, 16
+        add     x2, x15, SIM_CAP_X1
+        sub     x2, x2, SIM_BIRD_X
+        mov     x3, SIM_MASK_LAST
         cmp     x2, x3
         csel    x2, x2, x3, le
         mov     x3, 2
@@ -312,11 +310,13 @@ sim_hit_pipe:
         cmp     x1, x2
         csel    x3, x3, xzr, le
         // body span: columns x+1 .. x+24
-        sub     x1, x15, 27
+        add     x1, x15, 1
+        sub     x1, x1, SIM_BIRD_X
         cmp     x1, 0
         csel    x1, x1, xzr, ge
-        sub     x2, x15, 4
-        mov     x4, 16
+        add     x2, x15, SIM_BODY_X1
+        sub     x2, x2, SIM_BIRD_X
+        mov     x4, SIM_MASK_LAST
         cmp     x2, x4
         csel    x2, x2, x4, le
         mov     x4, 2
@@ -339,7 +339,7 @@ sim_hit_row:
         b.lt    sim_hit_and
         cmp     x8, SIM_GAP_H
         b.lt    sim_hit_rnext
-        cmp     x8, 62
+        cmp     x8, SIM_LOW_CAP
         b.lt    sim_hit_and
         mov     x0, x4
         cmp     x7, GROUND_Y
@@ -380,7 +380,8 @@ sim_pipes_step:
 sim_pipes_loop:
         ldr     x9, [sim_s_r]
         sub     x9, x9, 1
-        cmn     x9, 26
+        mov     x10, SIM_PIPE_OFF
+        cmp     x9, x10
         b.ge    sim_pipes_store
         add     x9, x9, SIM_PIPE_WRAP
         str     x9, [sim_s_r]
@@ -574,7 +575,7 @@ sim_tick_done:
         ldp     fp, lr, [sp], 48
         ret
 
-// sim_autopilot() -> w0 = press; flaps when the bird drops below the next gap's top plus a margin
+// sim_autopilot() -> w0 = press; flaps when the bird's centre falls a margin below the next gap's
         .balign 4
         .global sim_autopilot
 sim_autopilot:
@@ -617,7 +618,8 @@ sim_ap_skip:
         b.lt    sim_ap_scan
         ldr     x1, [x9, SIM_Y]
         asr     x1, x1, 8
-        add     x15, x15, SIM_AP_MARGIN
+        add     x1, x1, SIM_AP_BIRD
+        add     x15, x15, SIM_AP_GAP
         cmp     x1, x15
         cset    w0, gt
 sim_ap_done:
