@@ -21,6 +21,15 @@ define(term_trow_r, x21)
 define(term_tcol_r, x22)
 define(term_nfg_r, x23)
 define(term_nbg_r, x24)
+define(term_lrow_r, x19)
+define(term_lcol_r, x20)
+define(term_zw_r, x19)
+define(term_zn_r, x20)
+define(term_zc_r, x21)
+define(term_zr_r, x22)
+define(term_mrow_r, x19)
+define(term_mtip_r, x20)
+define(term_mlen_r, x21)
 
 TERM_REC = 24
 TERM_UNKNOWN = -1
@@ -30,6 +39,11 @@ TERM_GUESS_R = 24
 TERM_OUT_LIMIT = TERM_OUT_SIZE - TERM_OUT_SLACK
 TERM_BREATH_CELLS = 800
 TERM_MS = 1000000
+// the notice's lines: what the terminal is, what the game needs, then four lines of how
+TERM_SMALL_LINES = 6
+// gfx_geo's entry for the largest scale, which is the smallest display: its columns and rows
+TERM_GEO_MIN = GFX_SCALE_MAX * 8
+TERM_GEO_MIN_ROWS = TERM_GEO_MIN + 6
 term_cell_alloc = -(16 + 48 + 24) & -16
 term_cell_dealloc = 0 - term_cell_alloc
 term_cell_fgo = 64
@@ -83,24 +97,25 @@ term_g_full:
         .byte   0xE2, 0x96, 0x88
         .byte   0xE2, 0x96, 0x80
         .byte   0xE2, 0x96, 0x84
+// the too-small notice, one short line each so a narrow terminal still shows them whole
 term_s_small:
-        .ascii  "terminal "
+        .ascii  "terminal is "
 term_s_small_end:
 term_s_small2:
-        .ascii  " is too small, the game needs 36x32"
+        .ascii  "the game needs "
 term_s_small2_end:
-term_s_small3:
-        .byte   27
-        .ascii  "[2;1H"
-        .ascii  "zoom out (Ctrl and minus in Windows Terminal) or resize"
-term_s_small3_end:
+term_s_tips:
+        .asciz  "to zoom out in"
+        .asciz  "Windows Terminal,"
+        .asciz  "press Ctrl and minus"
+        .asciz  "or make it bigger"
+        .asciz  ""
 
 TERM_SETUP_LEN = term_s_setup_end - term_s_setup
 TERM_RESTORE_LEN = term_s_restore_end - term_s_restore
 TERM_CLEAR_LEN = term_s_clear_end - term_s_clear
 TERM_SMALL_LEN = term_s_small_end - term_s_small
 TERM_SMALL2_LEN = term_s_small2_end - term_s_small2
-TERM_SMALL3_LEN = term_s_small3_end - term_s_small3
 
         .bss
         .balign 16
@@ -465,34 +480,143 @@ term_open_done:
         ldp     fp, lr, [sp], present_open_dealloc
         ret
 
-// term_small(): the too-small notice; the next frame that fits repaints everything
+// term_line(x0 = row, x1 = length) -> w0 = 1 with the cursor where a centred line of that
+// length starts, or 0 when the row is off the screen
+term_line_alloc = -(16 + 16) & -16
+term_line_dealloc = 0 - term_line_alloc
+        .balign 4
+term_line:
+        stp     fp, lr, [sp, term_line_alloc]!
+        mov     fp, sp
+        stp     x19, x20, [sp, 16]
+        mov     term_lrow_r, x0
+        mov     w0, 0
+        ldr     x9, =term_rows
+        ldr     x9, [x9]
+        cmp     term_lrow_r, x9
+        b.gt    term_line_done
+        // a line wider than the terminal starts at the left edge and is cut at the right
+        ldr     x9, =term_cols
+        ldr     x9, [x9]
+        subs    x9, x9, x1
+        csel    x9, x9, xzr, gt
+        lsr     x9, x9, 1
+        add     term_lcol_r, x9, 1
+        bl      term_putesc
+        mov     x0, term_lrow_r
+        bl      term_putdec
+        mov     w0, 59
+        bl      term_putc
+        mov     x0, term_lcol_r
+        bl      term_putdec
+        mov     w0, 72
+        bl      term_putc
+        mov     w0, 1
+term_line_done:
+        ldp     x19, x20, [sp, 16]
+        ldp     fp, lr, [sp], term_line_dealloc
+        ret
+
+// term_sizeline(x0 = row, x1 = words, x2 = their length, x3 = columns, x4 = rows): a centred
+// line of the notice, the words then the size
+term_sizeline_alloc = -(16 + 32) & -16
+term_sizeline_dealloc = 0 - term_sizeline_alloc
+        .balign 4
+term_sizeline:
+        stp     fp, lr, [sp, term_sizeline_alloc]!
+        mov     fp, sp
+        stp     x19, x20, [sp, 16]
+        stp     x21, x22, [sp, 32]
+        mov     term_zw_r, x1
+        mov     term_zn_r, x2
+        mov     term_zc_r, x3
+        mov     term_zr_r, x4
+        ldr     x9, =term_dec
+        add     x10, x9, term_zc_r, lsl 2
+        ldrb    w10, [x10]
+        add     x11, x9, term_zr_r, lsl 2
+        ldrb    w11, [x11]
+        add     x1, term_zn_r, x10
+        add     x1, x1, x11
+        add     x1, x1, 1
+        bl      term_line
+        cbz     w0, term_sizeline_done
+        mov     x0, term_zw_r
+        mov     x1, term_zn_r
+        bl      term_put
+        mov     x0, term_zc_r
+        bl      term_putdec
+        mov     w0, 120
+        bl      term_putc
+        mov     x0, term_zr_r
+        bl      term_putdec
+term_sizeline_done:
+        ldp     x19, x20, [sp, 16]
+        ldp     x21, x22, [sp, 32]
+        ldp     fp, lr, [sp], term_sizeline_dealloc
+        ret
+
+// term_small(): the too-small notice, centred; the next frame that fits repaints everything
+term_small_alloc = -(16 + 24) & -16
+term_small_dealloc = 0 - term_small_alloc
         .balign 4
 term_small:
-        stp     fp, lr, [sp, -16]!
+        stp     fp, lr, [sp, term_small_alloc]!
         mov     fp, sp
+        stp     x19, x20, [sp, 16]
+        str     x21, [sp, 32]
         ldr     x0, =term_s_reset
         mov     x1, 4
         bl      term_put
         ldr     x0, =term_s_clear
         mov     x1, TERM_CLEAR_LEN
         bl      term_put
-        ldr     x0, =term_s_small
-        mov     x1, TERM_SMALL_LEN
-        bl      term_put
-        ldr     x9, =term_cols
-        ldr     x0, [x9]
-        bl      term_putdec
-        mov     w0, 120
-        bl      term_putc
+        // centred on the rows there are, from the top when there are fewer than its lines
         ldr     x9, =term_rows
-        ldr     x0, [x9]
-        bl      term_putdec
-        ldr     x0, =term_s_small2
-        mov     x1, TERM_SMALL2_LEN
+        ldr     x9, [x9]
+        subs    x9, x9, TERM_SMALL_LINES
+        csel    x9, x9, xzr, gt
+        lsr     x9, x9, 1
+        add     term_mrow_r, x9, 1
+        mov     x0, term_mrow_r
+        ldr     x1, =term_s_small
+        mov     x2, TERM_SMALL_LEN
+        ldr     x9, =term_cols
+        ldr     x3, [x9]
+        ldr     x9, =term_rows
+        ldr     x4, [x9]
+        bl      term_sizeline
+        add     term_mrow_r, term_mrow_r, 1
+        mov     x0, term_mrow_r
+        ldr     x1, =term_s_small2
+        mov     x2, TERM_SMALL2_LEN
+        ldr     x9, =gfx_geo
+        ldrh    w3, [x9, TERM_GEO_MIN]
+        ldrh    w4, [x9, TERM_GEO_MIN_ROWS]
+        bl      term_sizeline
+        add     term_mrow_r, term_mrow_r, 1
+        ldr     term_mtip_r, =term_s_tips
+term_small_tip:
+        // each tip is a zero-terminated line, and an empty one ends them
+        mov     term_mlen_r, -1
+term_small_len:
+        add     term_mlen_r, term_mlen_r, 1
+        ldrb    w9, [term_mtip_r, term_mlen_r]
+        cbnz    w9, term_small_len
+        cbz     term_mlen_r, term_small_end
+        mov     x0, term_mrow_r
+        mov     x1, term_mlen_r
+        bl      term_line
+        cbz     w0, term_small_next
+        mov     x0, term_mtip_r
+        mov     x1, term_mlen_r
         bl      term_put
-        ldr     x0, =term_s_small3
-        mov     x1, TERM_SMALL3_LEN
-        bl      term_put
+term_small_next:
+        add     term_mtip_r, term_mtip_r, term_mlen_r
+        add     term_mtip_r, term_mtip_r, 1
+        add     term_mrow_r, term_mrow_r, 1
+        b       term_small_tip
+term_small_end:
         bl      term_flush
         ldr     x9, =term_pen_fg
         mov     x10, TERM_UNKNOWN
@@ -504,7 +628,9 @@ term_small:
         ldr     x9, =term_full
         mov     x10, 1
         str     x10, [x9]
-        ldp     fp, lr, [sp], 16
+        ldp     x19, x20, [sp, 16]
+        ldr     x21, [sp, 32]
+        ldp     fp, lr, [sp], term_small_dealloc
         ret
 
 // term_move(x0 = row, x1 = col): cursor to a cell by the shorter of a relative or an absolute move
