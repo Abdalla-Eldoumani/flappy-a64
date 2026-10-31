@@ -14,7 +14,17 @@ const { Emulator } = require(join(root, 'build/playground-wasm/aarch64_emulator.
 const bundle = readFileSync(join(root, 'dist/flappy-bundle.asm'), 'utf8');
 const CHUNK = 1000000;
 const STEP_RATE = 1000000, BYTE_RATE = 100000;
-const STEP_WALL = 210000000, BYTE_WALL = 8 * 1024 * 1024;
+const STEP_START = 10000000, STEP_CAP = 200000000;
+const BYTE_START = 4 * 1024 * 1024, BYTE_CAP = 4 * 1024 * 1024;
+const STEP_WALL = STEP_START + STEP_CAP, BYTE_WALL = BYTE_START + BYTE_CAP;
+
+// A budget starts full, gains `refill` per second slept until `cap` of refunds is spent, and the
+// program spends `rate` per second; returns the seconds until it runs dry.
+function lasts(start, refill, cap, rate) {
+  const refunding = cap / refill;
+  if (rate > refill && start / (rate - refill) <= refunding) return start / (rate - refill);
+  return refunding + (start + (refill - rate) * refunding) / rate;
+}
 
 function load(args) {
   const emu = new Emulator();
@@ -80,7 +90,9 @@ function envelope(minutes) {
   const secs = ms / 1000;
   const stepsPerSec = steps / secs, bytesPerSec = seen / secs;
   const why = r.error ? `error: ${r.error}` : r.halted ? `halted, exit ${emu.get_exit_code()}` : `ran the full ${minutes} minutes`;
-  const projected = Math.min(BYTE_WALL / bytesPerSec, STEP_WALL / stepsPerSec) / 60;
+  const stepLife = lasts(STEP_START, STEP_RATE, STEP_CAP, stepsPerSec);
+  const byteLife = lasts(BYTE_START, BYTE_RATE, BYTE_CAP, bytesPerSec);
+  const projected = Math.min(stepLife, byteLife) / 60;
   console.log(`virtual time ${secs.toFixed(1)} s over ${chunks} chunks; stopped: ${why}`);
   if (r.error || r.halted) console.log(`stderr: ${JSON.stringify(emu.take_stderr()).slice(0, 300)}`);
   console.log(`steps: ${steps}, ${Math.round(stepsPerSec)} per s (${(100 * stepsPerSec / STEP_RATE).toFixed(1)}% of the refill), busiest second ${secPeakSteps}`);
@@ -88,7 +100,8 @@ function envelope(minutes) {
   console.log(`peak steps between two sleeps: ${peak}; chunks at the ${CHUNK}-step stop: ${limit}`);
   console.log(`step wall (${STEP_WALL}) reached at: ${stepWallAt === null ? 'not reached' : (stepWallAt / 1000).toFixed(1) + ' s'}`);
   console.log(`output wall (${BYTE_WALL}) reached at: ${byteWallAt === null ? 'not reached' : (byteWallAt / 1000).toFixed(1) + ' s'}`);
-  console.log(`projected session length at these rates: ${projected.toFixed(1)} minutes`);
+  console.log(`step budget lasts ${(stepLife / 60).toFixed(1)} min, output budget ${(byteLife / 60).toFixed(1)} min at these rates`);
+  console.log(`projected session length: ${projected.toFixed(1)} minutes (observed stop at ${(secs / 60).toFixed(1)} min${r.error || r.halted ? '' : ', still running'})`);
   const ok = stepsPerSec < 0.9 * STEP_RATE && bytesPerSec < 0.9 * BYTE_RATE && limit === 0;
   console.log(ok ? 'PASS envelope' : 'FAIL envelope');
   return ok ? 0 : 1;
