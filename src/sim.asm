@@ -52,16 +52,18 @@ sim_rand:
         ret
 
 // sim_pick(x0 = n) -> x0 = uniform value in [0, n)
+sim_pick_alloc = -(16 + 8) & -16
+sim_pick_dealloc = 0 - sim_pick_alloc
         .balign 4
 sim_pick:
-        stp     fp, lr, [sp, -32]!
+        stp     fp, lr, [sp, sim_pick_alloc]!
         mov     fp, sp
         str     sim_n_r, [sp, 16]
         mov     sim_n_r, x0
         bl      sim_rand
         umulh   x0, x0, sim_n_r
         ldr     sim_n_r, [sp, 16]
-        ldp     fp, lr, [sp], 32
+        ldp     fp, lr, [sp], sim_pick_dealloc
         ret
 
 // sim_pick_look(): day or night and one of three bird colours for the next run
@@ -154,9 +156,11 @@ sim_reset_run:
         ret
 
 // sim_start_play(): the bird keeps its bobbing height and the first pipes line up offscreen
+sim_start_play_alloc = -(16 + 16) & -16
+sim_start_play_dealloc = 0 - sim_start_play_alloc
         .balign 4
 sim_start_play:
-        stp     fp, lr, [sp, -32]!
+        stp     fp, lr, [sp, sim_start_play_alloc]!
         mov     fp, sp
         stp     x19, x22, [sp, 16]
         ldr     sim_s_r, =sim_s
@@ -188,7 +192,7 @@ sim_start_test:
         str     x9, [sim_s_r, SIM_STATE]
         str     xzr, [sim_s_r, SIM_ST]
         ldp     x19, x22, [sp, 16]
-        ldp     fp, lr, [sp], 32
+        ldp     fp, lr, [sp], sim_start_play_dealloc
         ret
 
 // sim_bob_step(): triangle wave for the title and get ready bob
@@ -368,9 +372,11 @@ sim_hit_done:
         ret
 
 // sim_pipes_step(): pipes move one pixel left; one leaving the field returns at the far end
+sim_pipes_step_alloc = -(16 + 16) & -16
+sim_pipes_step_dealloc = 0 - sim_pipes_step_alloc
         .balign 4
 sim_pipes_step:
-        stp     fp, lr, [sp, -32]!
+        stp     fp, lr, [sp, sim_pipes_step_alloc]!
         mov     fp, sp
         stp     x19, x22, [sp, 16]
         ldr     sim_s_r, =sim_s
@@ -399,7 +405,7 @@ sim_pipes_test:
         cmp     sim_i_r, SIM_PIPES
         b.lt    sim_pipes_loop
         ldp     x19, x22, [sp, 16]
-        ldp     fp, lr, [sp], 32
+        ldp     fp, lr, [sp], sim_pipes_step_dealloc
         ret
 
 // sim_inc(x0 = field offset): adds one to a field
@@ -415,10 +421,12 @@ sim_inc:
         ret
 
 // sim_tick(w0 = press): one 60 Hz tick, in the classic loop's order
+sim_tick_alloc = -(16 + 24) & -16
+sim_tick_dealloc = 0 - sim_tick_alloc
         .balign 4
         .global sim_tick
 sim_tick:
-        stp     fp, lr, [sp, -48]!
+        stp     fp, lr, [sp, sim_tick_alloc]!
         mov     fp, sp
         stp     x19, x20, [sp, 16]
         str     x21, [sp, 32]
@@ -572,7 +580,7 @@ sim_tick_oinc:
 sim_tick_done:
         ldp     x19, x20, [sp, 16]
         ldr     x21, [sp, 32]
-        ldp     fp, lr, [sp], 48
+        ldp     fp, lr, [sp], sim_tick_dealloc
         ret
 
 // sim_autopilot() -> w0 = press; flaps when the bird's centre falls a margin below the next gap's
