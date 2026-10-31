@@ -45,6 +45,10 @@ TERM_FINAL_SGR = 109
 TERM_CSI = 0x5B1B
 // a cursor column past any display, so the first cell of a row goes there by row and column
 TERM_FAR = 4000
+// ESC [ C jumps one cell in 3 bytes and ESC [ n C up to nine in 4, so a gap of at most this many
+// cells costs fewer bytes as spaces, but only when every one of them is the pen's background
+TERM_GAP = 3
+TERM_SPACE = 32
 // the diff compares a block of eight cells as one 64-bit word; a cell's byte starts at a bit
 // index that is a multiple of eight, which TERM_BYTE_BITS rounds down to
 TERM_BLOCK = 8
@@ -933,6 +937,28 @@ term_pf_cell:
         b.eq    term_pf_pen
         cmp     x12, TERM_SIZE_CAP
         b.hi    term_pf_abs
+        cmp     x12, TERM_GAP
+        b.hi    term_pf_jump
+        // a cursor in the border to the left has no cells of this display to rewrite
+        tbnz    term_curc_r, 63, term_pf_jump
+        mov     x13, term_curc_r
+term_pf_gap:
+        ldrb    w14, [term_bt_r, x13]
+        cmp     x14, term_pbg_r
+        b.ne    term_pf_jump
+        ldrb    w14, [term_bb_r, x13]
+        cmp     x14, term_pbg_r
+        b.ne    term_pf_jump
+        add     x13, x13, 1
+        cmp     x13, x9
+        b.lt    term_pf_gap
+        mov     w14, TERM_SPACE
+term_pf_spaces:
+        strb    w14, [term_out_r], 1
+        subs    x12, x12, 1
+        b.ne    term_pf_spaces
+        b       term_pf_pen
+term_pf_jump:
         mov     w13, TERM_CSI
         strh    w13, [term_out_r], 2
         cmp     x12, 1
