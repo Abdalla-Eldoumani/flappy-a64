@@ -29,6 +29,7 @@ MAIN_T_MIN = 0
 MAIN_T_MAX = 8
 MAIN_T_SUM = 16
 MAIN_T_N = 24
+MAIN_T_BYTES = MAIN_T_N + 8
 MAIN_FLAP_MAX = 4096
 MAIN_DUMP_MAX = 1024
 MAIN_PERIOD = 16666667
@@ -137,8 +138,8 @@ main_start:     .skip   8
 main_idxfd:     .skip   8
 main_lastc:     .skip   8
 main_lastr:     .skip   8
-main_bns:       .skip   32
-main_bbytes:    .skip   32
+main_bns:       .skip   MAIN_T_BYTES
+main_bbytes:    .skip   MAIN_T_BYTES
 main_lastfl:    .skip   8
 main_prevst:    .skip   8
 main_dbgn:      .skip   8
