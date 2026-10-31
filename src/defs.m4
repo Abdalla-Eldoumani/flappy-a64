@@ -9,14 +9,14 @@
 //                 static background                             36864
 //                 rotated bird, 69 boxes of 24 x 24             39744
 //                 ground strip 240 x 56                         13440
-//                 division table, sprites, digits, geometry      4912
+//                 division table, sprites, digits, geometry      4808
 //           term  output buffer                                131072
 //                 colour strings 2 x 64 x 24, decimals, state    7248
 //           art   palette, legend map                             392
 //           sim   state 26 x 8, masks 36 x 4                      352
 //           tty   termios x 2, input buffer, decoder              296
 //           save  ppm row buffer, header                          576
-//                 total                                        391536
+//                 total                                        391432
 //   .rodata art   palettes, legends, trig, sprite text           7744
 //           rest  messages and tables                             568
 //                 total                                          8312
