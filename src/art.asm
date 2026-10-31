@@ -2,6 +2,15 @@
 // A sprite row is one character per pixel: '.' is transparent and the sprite's legend maps
 // each other character to a colour slot. Glyphs keep all their rows on one line, split by '/'.
 
+ART_PAL_BYTES = SLOT_COUNT * 4
+ART_NIGHT_BYTES = SLOT_PDARK * 4
+ART_BIRD_OFF = SLOT_BODY * 4
+ART_BIRD_BYTES = (SLOT_WING - SLOT_BODY + 1) * 4
+ART_PAL_SPARE = (SLOT_COUNT - SLOT_TOUT - 1) * 4
+// one legend entry per 7-bit character code
+ART_MAP_BYTES = 128
+ART_CODE_MASK = ART_MAP_BYTES - 1
+
         .section .rodata
 // day palette: slot -> R, G, B, pad
         .balign 4
@@ -37,7 +46,7 @@ art_day:
         .byte   196, 64, 36, 0
         .byte   255, 255, 255, 0
         .byte   40, 30, 34, 0
-        .skip   132
+        .skip   ART_PAL_SPARE
 // night replaces the scenery slots, 1 to 19; the bird and text keep the day colours
 art_night:
         .byte   22, 40, 78, 0
@@ -366,11 +375,6 @@ art_font3:
         .ascii  "++./..+/.+./.../.+."
         .ascii  "..+/..+/.+./+../+.."
 
-ART_PAL_BYTES = SLOT_COUNT * 4
-ART_NIGHT_BYTES = SLOT_PDARK * 4
-ART_BIRD_OFF = SLOT_BODY * 4
-ART_BIRD_BYTES = (SLOT_WING - SLOT_BODY + 1) * 4
-
 // legends: character code, slot, ..., 0
         .balign 4
         .global art_l_bird
@@ -419,8 +423,8 @@ art_trig:
         .bss
         .balign 16
         .global art_pal
-art_pal:        .skip   256
-art_map:        .skip   128
+art_pal:        .skip   ART_PAL_BYTES
+art_map:        .skip   ART_MAP_BYTES
 art_key:        .skip   8
 
         .text
@@ -437,7 +441,7 @@ art_decode:
 art_decode_clear:
         str     x11, [x9, x10]
         add     x10, x10, 8
-        cmp     x10, 128
+        cmp     x10, ART_MAP_BYTES
         b.lt    art_decode_clear
 art_decode_legend:
         ldrb    w10, [x1], 1
@@ -452,7 +456,7 @@ art_decode_loop:
         // a slash only separates glyph rows
         cmp     w10, ART_SLASH
         b.eq    art_decode_loop
-        and     w10, w10, 127
+        and     w10, w10, ART_CODE_MASK
         ldrb    w11, [x9, x10]
         strb    w11, [x3], 1
         subs    x2, x2, 1
