@@ -178,7 +178,8 @@ GFX_WBITS = 4096
 // an outlined word is its bitmap plus a one-pixel ring; gfx_word refuses one that would not fit
 GFX_WORD_MAX = GFX_WBITS + 512
 GFX_UI_ROOM = GFX_UI_BYTES - GFX_WORD_MAX
-GFX_SDIGIT_BYTES = 64
+// a small digit is one glyph of the larger font with its outline
+GFX_SDIGIT_BYTES = (ART_F5_W + 2) * (ART_F5_H + 2)
 GFX_SDIGITS_BYTES = GFX_SDIGIT_BYTES * 10
 GFX_MEDAL_BYTES = ART_MEDAL1 * ART_MEDAL1
 GFX_SPARK_BYTES = ART_SPARK1 * ART_SPARK1
