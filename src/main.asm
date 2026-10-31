@@ -98,6 +98,7 @@ main_start:     .skip   8
 main_idxfd:     .skip   8
 main_lastc:     .skip   8
 main_lastr:     .skip   8
+main_prevst:    .skip   8
         .balign 8
         .global main_pace
 main_pace:      .skip   8
@@ -793,6 +794,26 @@ main_buffers:
         ldp     fp, lr, [sp], 16
         ret
 
+// main_ended(): the tick a run reaches its over screen, its score meets the best
+        .balign 4
+main_ended:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =sim_s
+        ldr     x10, [x9, SIM_STATE]
+        ldr     x11, =main_prevst
+        ldr     x12, [x11]
+        str     x10, [x11]
+        cmp     x10, SIM_OVER
+        b.ne    main_ended_done
+        cmp     x12, SIM_OVER
+        b.eq    main_ended_done
+        ldr     x0, [x9, SIM_SCORE]
+        bl      save_best_check
+main_ended_done:
+        ldp     fp, lr, [sp], 16
+        ret
+
 // main_render(): the full game with rendering into stdout, no terminal and no sleeping
 main_render_alloc = -(16 + 16) & -16
 main_render_dealloc = 0 - main_render_alloc
@@ -810,6 +831,7 @@ main_render:
         ldr     x9, =main_idxfd
         str     x0, [x9]
         bl      main_seed_sim
+        bl      save_best_load
         mov     x0, LOG_W
         mov     x1, LOG_H
         bl      present_open
@@ -823,6 +845,7 @@ main_render_loop:
         mov     x0, main_t_r
         bl      main_press
         bl      sim_tick
+        bl      main_ended
         ldr     x9, =main_lite
         ldr     x9, [x9]
         cbz     x9, main_render_draw
@@ -976,6 +999,7 @@ main_play_seed:
         ldr     x9, =main_pace
         str     x10, [x9]
         bl      main_seed_sim
+        bl      save_best_load
         mov     x0, LOG_W
         mov     x1, LOG_H
         bl      present_open
@@ -1027,6 +1051,7 @@ main_play_auto:
 main_play_sim:
         ldr     x0, [sp], 16
         bl      sim_tick
+        bl      main_ended
         ldr     x9, =main_simticks
         ldr     x10, [x9]
         add     x10, x10, 1
