@@ -16,7 +16,7 @@ RUN := qemu-aarch64
 endif
 CFLAGS := -Wa,--fatal-warnings
 
-.PHONY: all bundle m4gate goldens physics bundlecheck encoder playground envelope smoke test play clean
+.PHONY: all bundle m4gate goldens physics bundlecheck encoder playground envelope smoke frames test play clean
 
 all: build/flappy
 
@@ -69,6 +69,10 @@ envelope: bundle
 
 smoke: build/flappy
 	cd build && bash ../tests/pty-smoke.sh $(RUN)
+
+# named moments as PNGs and one contact sheet, build/frames/sheet.png
+frames: build/flappy
+	cd build && bash ../tests/frames.sh $(RUN)
 
 test: m4gate goldens physics bundlecheck encoder playground smoke
 
