@@ -724,7 +724,7 @@ main_dump_name:
         ldr     x1, [x1]
         ldr     x2, =gfx_stride
         ldr     x2, [x2]
-        ldr     x3, =art_palette
+        ldr     x3, =art_pal
         bl      save_ppm
 main_dump_done:
         ldr     main_arg_r, [sp, 16]
@@ -740,6 +740,14 @@ main_draw:
         mov     fp, sp
         str     main_arg_r, [sp, 16]
         mov     main_arg_r, x0
+        ldr     x9, =sim_s
+        ldr     x0, [x9, SIM_THEME]
+        ldr     x1, [x9, SIM_BIRDC]
+        bl      art_build
+        ldr     x9, =main_palnew
+        ldr     x10, [x9]
+        orr     x10, x10, x0
+        str     x10, [x9]
         ldr     x9, =main_back
         ldr     x0, [x9]
         bl      gfx_frame
@@ -747,7 +755,7 @@ main_draw:
         ldr     x0, [x9]
         ldr     x1, =gfx_stride
         ldr     x1, [x1]
-        ldr     x2, =art_palette
+        ldr     x2, =art_pal
         ldr     x9, =main_palnew
         ldr     w3, [x9]
         str     xzr, [x9]
