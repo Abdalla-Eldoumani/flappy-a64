@@ -175,7 +175,7 @@ GFX_UITAB_REC = 24
 GFX_UITAB_BYTES = ART_UI_WORDS * GFX_UITAB_REC
 GFX_UI_BYTES = 16384
 GFX_WBITS = 4096
-// an outlined word is its bitmap plus a one-pixel ring
+// an outlined word is its bitmap plus a one-pixel ring; gfx_word refuses one that would not fit
 GFX_WORD_MAX = GFX_WBITS + 512
 GFX_UI_ROOM = GFX_UI_BYTES - GFX_WORD_MAX
 GFX_SDIGIT_BYTES = 64
@@ -1488,14 +1488,16 @@ gfx_frame_done:
         ldp     fp, lr, [sp], gfx_frame_dealloc
         ret
 
-// gfx_word(x0 = text, x1 = font 5 or 3, x2 = size k, x3 = dest, w4 = fill, w5 = edge)
-//   -> x0 = width, x1 = height, outline included; 0 x 0 when the text is empty or too big
-gfx_word_alloc = -(16 + 80 + 32) & -16
+// gfx_word(x0 = text, x1 = font 5 or 3, x2 = size k, x3 = dest, w4 = fill, w5 = edge,
+//   x6 = dest bytes) -> x0 = width, x1 = height, outline included; 0 x 0 when the text is empty
+//   or the word does not fit its bitmap or its destination
+gfx_word_alloc = -(16 + 80 + 40) & -16
 gfx_word_dealloc = 0 - gfx_word_alloc
 gfx_word_text = 96
 gfx_word_fill = 104
 gfx_word_edge = 112
 gfx_word_h = 120
+gfx_word_room = 128
         .balign 4
 gfx_word:
         stp     fp, lr, [sp, gfx_word_alloc]!
@@ -1508,6 +1510,7 @@ gfx_word:
         str     x0, [sp, gfx_word_text]
         str     w4, [sp, gfx_word_fill]
         str     w5, [sp, gfx_word_edge]
+        str     x6, [sp, gfx_word_room]
         mov     gfx_wk_r, x2
         mov     gfx_wd_r, x3
         ldr     gfx_wf_r, =art_font5
@@ -1554,6 +1557,12 @@ gfx_word_ctest:
         str     x13, [sp, gfx_word_h]
         mul     x9, gfx_ww_r, x13
         cmp     x9, GFX_WBITS
+        b.hi    gfx_word_done
+        add     x10, gfx_ww_r, 2
+        add     x11, x13, 2
+        mul     x10, x10, x11
+        ldr     x11, [sp, gfx_word_room]
+        cmp     x10, x11
         b.hi    gfx_word_done
         ldr     x10, =gfx_wbits
 gfx_word_clear:
@@ -1674,6 +1683,8 @@ gfx_bake_ui_word:
         add     x3, x3, gfx_uo_r
         ldrb    w4, [gfx_uy_r, 2]
         ldrb    w5, [gfx_uy_r, 3]
+        ldr     x6, =GFX_UI_BYTES
+        sub     x6, x6, gfx_uo_r
         bl      gfx_word
         str     x0, [gfx_ut_r, 8]
         str     x1, [gfx_ut_r, 16]
@@ -1710,6 +1721,7 @@ gfx_bake_ui_digit:
         madd    x3, gfx_ue_r, x9, x3
         mov     w4, SLOT_WHITE
         mov     w5, SLOT_TOUT
+        mov     x6, GFX_SDIGIT_BYTES
         bl      gfx_word
         add     gfx_ue_r, gfx_ue_r, 1
         cmp     gfx_ue_r, GFX_DIGITS
@@ -2393,6 +2405,7 @@ gfx_overlay_font:
         ldr     x3, =gfx_dbg
         mov     w4, SLOT_WHITE
         mov     w5, SLOT_TOUT
+        ldr     x6, =GFX_WORD_MAX
         bl      gfx_word
         ldr     x9, =gfx_dbgw
         str     x0, [x9]
