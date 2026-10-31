@@ -175,6 +175,7 @@ gfx_span:
         mov     fp, sp
         b       gfx_span_test
 gfx_span_wide:
+        // a pipe or ground row is mostly whole 16-byte runs; one pair moves each run
         ld1     {v0.16b}, [x1], 16
         st1     {v0.16b}, [x0], 16
         sub     x2, x2, 16
