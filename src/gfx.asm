@@ -1652,20 +1652,20 @@ gfx_bake_ui:
         ldr     gfx_ut_r, =gfx_uitab
         mov     gfx_uo_r, 0
         mov     gfx_ue_r, 0
-gfx_ui_word:
+gfx_bake_ui_word:
         and     x9, gfx_ue_r, 3
         add     x9, x9, 1
         ldr     x10, =gfx_scale
         ldr     x10, [x10]
         cmp     x9, x10
-        b.ne    gfx_ui_end
+        b.ne    gfx_bake_ui_end
         str     xzr, [gfx_ut_r, 8]
         str     xzr, [gfx_ut_r, 16]
         ldrb    w9, [gfx_us_r]
-        cbz     w9, gfx_ui_end
+        cbz     w9, gfx_bake_ui_end
         ldr     x9, =GFX_UI_ROOM
         cmp     gfx_uo_r, x9
-        b.hi    gfx_ui_end
+        b.hi    gfx_bake_ui_end
         str     gfx_uo_r, [gfx_ut_r]
         mov     x0, gfx_us_r
         ldrb    w1, [gfx_uy_r]
@@ -1678,27 +1678,27 @@ gfx_ui_word:
         str     x0, [gfx_ut_r, 8]
         str     x1, [gfx_ut_r, 16]
         madd    gfx_uo_r, x0, x1, gfx_uo_r
-gfx_ui_end:
+gfx_bake_ui_end:
         ldrb    w9, [gfx_us_r], 1
-        cbnz    w9, gfx_ui_end
+        cbnz    w9, gfx_bake_ui_end
         add     gfx_uy_r, gfx_uy_r, 4
         add     gfx_ue_r, gfx_ue_r, 1
         tst     gfx_ue_r, 3
-        b.ne    gfx_ui_more
+        b.ne    gfx_bake_ui_more
         add     gfx_ut_r, gfx_ut_r, GFX_UITAB_REC
-gfx_ui_more:
+gfx_bake_ui_more:
         cmp     gfx_ue_r, GFX_UI_STRINGS
-        b.lt    gfx_ui_word
+        b.lt    gfx_bake_ui_word
         // small digits for the panel and the title, drawn as one-character words
         ldr     x9, =gfx_scale
         ldr     x9, [x9]
         mov     gfx_uy_r, ART_F5_W
         cmp     x9, 1
-        b.eq    gfx_ui_digits
+        b.eq    gfx_bake_ui_digits
         mov     gfx_uy_r, ART_F3_W
-gfx_ui_digits:
+gfx_bake_ui_digits:
         mov     gfx_ue_r, 0
-gfx_ui_digit:
+gfx_bake_ui_digit:
         ldr     x0, =gfx_numtxt
         add     w9, gfx_ue32_r, ART_CHAR_0
         strb    w9, [x0]
@@ -1713,7 +1713,7 @@ gfx_ui_digit:
         bl      gfx_word
         add     gfx_ue_r, gfx_ue_r, 1
         cmp     gfx_ue_r, GFX_DIGITS
-        b.lt    gfx_ui_digit
+        b.lt    gfx_bake_ui_digit
         ldr     x9, =gfx_sdw
         str     x0, [x9]
         ldr     x9, =gfx_sdh
@@ -1729,18 +1729,18 @@ gfx_ui_digit:
         ldr     gfx_us_r, =art_spark1
         mov     gfx_uo_r, ART_SPARK1
         cmp     x9, 1
-        b.eq    gfx_ui_medal
+        b.eq    gfx_bake_ui_medal
         ldr     x0, =art_medal2
         mov     gfx_ue_r, ART_MEDAL2
         ldr     gfx_us_r, =art_spark2
         mov     gfx_uo_r, ART_SPARK2
         cmp     x9, 2
-        b.eq    gfx_ui_medal
+        b.eq    gfx_bake_ui_medal
         ldr     x0, =art_medal3
         mov     gfx_ue_r, ART_MEDAL3
         ldr     gfx_us_r, =art_spark3
         mov     gfx_uo_r, ART_SPARK3
-gfx_ui_medal:
+gfx_bake_ui_medal:
         ldr     x9, =gfx_medw
         str     gfx_ue_r, [x9]
         ldr     x9, =gfx_sparkw
@@ -2276,11 +2276,11 @@ gfx_palette:
         ldr     x9, =sim_s
         ldr     x10, [x9, SIM_STATE]
         cmp     x10, SIM_OVER
-        b.ne    gfx_pal_look
+        b.ne    gfx_palette_look
         ldr     x0, [x9, SIM_SCORE]
         bl      gfx_medal_of
         mov     x2, x0
-gfx_pal_look:
+gfx_palette_look:
         ldr     x9, =sim_s
         ldr     x0, [x9, SIM_THEME]
         ldr     x1, [x9, SIM_BIRDC]
@@ -2292,57 +2292,57 @@ gfx_pal_look:
         ldr     x11, [x9, SIM_ST]
         mov     gfx_pk_r, 0
         cmp     x10, SIM_DYING
-        b.eq    gfx_pal_flash
+        b.eq    gfx_palette_flash
         cmp     x10, SIM_OVER
-        b.eq    gfx_pal_flash
+        b.eq    gfx_palette_flash
         cmp     x10, SIM_FADE
-        b.eq    gfx_pal_out
+        b.eq    gfx_palette_out
         cmp     x10, SIM_READY
-        b.ne    gfx_pal_key
+        b.ne    gfx_palette_key
         cmp     x11, GFX_FADEIN_TICKS
-        b.ge    gfx_pal_key
+        b.ge    gfx_palette_key
         mov     x12, GFX_DARK_LEVELS
-        b       gfx_pal_intest
-gfx_pal_in:
+        b       gfx_palette_intest
+gfx_palette_in:
         sub     x11, x11, GFX_FADEIN_STEP
         sub     x12, x12, 1
-gfx_pal_intest:
+gfx_palette_intest:
         cmp     x11, GFX_FADEIN_STEP
-        b.ge    gfx_pal_in
+        b.ge    gfx_palette_in
         add     gfx_pk_r, x12, GFX_KEY_DARK
-        b       gfx_pal_key
-gfx_pal_out:
+        b       gfx_palette_key
+gfx_palette_out:
         mov     x12, 1
-        b       gfx_pal_outtest
-gfx_pal_outup:
+        b       gfx_palette_outtest
+gfx_palette_outup:
         sub     x11, x11, GFX_FADE_STEP
         add     x12, x12, 1
-gfx_pal_outtest:
+gfx_palette_outtest:
         cmp     x11, GFX_FADE_STEP
-        b.ge    gfx_pal_outup
+        b.ge    gfx_palette_outup
         add     gfx_pk_r, x12, GFX_KEY_DARK
-        b       gfx_pal_key
-gfx_pal_flash:
+        b       gfx_palette_key
+gfx_palette_flash:
         ldr     x11, [x9, SIM_HITT]
         cmp     x11, GFX_FLASH_TICKS
-        b.ge    gfx_pal_key
+        b.ge    gfx_palette_key
         mov     x12, GFX_FLASH_LEVELS
-        b       gfx_pal_ftest
-gfx_pal_fdown:
+        b       gfx_palette_ftest
+gfx_palette_fdown:
         sub     x11, x11, GFX_FLASH_STEP
         sub     x12, x12, 1
-gfx_pal_ftest:
+gfx_palette_ftest:
         cmp     x11, GFX_FLASH_STEP
-        b.ge    gfx_pal_fdown
+        b.ge    gfx_palette_fdown
         add     gfx_pk_r, x12, GFX_KEY_FLASH
-gfx_pal_key:
+gfx_palette_key:
         ldr     x9, =gfx_effkey
         ldr     x10, [x9]
         cmp     x10, gfx_pk_r
-        b.ne    gfx_pal_build
+        b.ne    gfx_palette_build
         mov     w0, 0
-        cbz     gfx_pc_r, gfx_pal_done
-gfx_pal_build:
+        cbz     gfx_pc_r, gfx_palette_done
+gfx_palette_build:
         str     gfx_pk_r, [x9]
         and     x12, gfx_pk_r, GFX_KEY_LEVEL
         lsl     x12, x12, GFX_TINT_SHIFT
@@ -2351,27 +2351,27 @@ gfx_pal_build:
         ldr     x9, =art_pal
         ldr     x10, =gfx_pal
         mov     x11, 0
-gfx_pal_byte:
+gfx_palette_byte:
         ldrb    w14, [x9, x11]
         tst     gfx_pk_r, GFX_KEY_FLASH
-        b.ne    gfx_pal_white
+        b.ne    gfx_palette_white
         tst     gfx_pk_r, GFX_KEY_DARK
-        b.eq    gfx_pal_put
+        b.eq    gfx_palette_put
         mul     x14, x14, x13
         lsr     x14, x14, 8
-        b       gfx_pal_put
-gfx_pal_white:
+        b       gfx_palette_put
+gfx_palette_white:
         mov     x15, 255
         sub     x15, x15, x14
         mul     x15, x15, x12
         add     x14, x14, x15, lsr 8
-gfx_pal_put:
+gfx_palette_put:
         strb    w14, [x10, x11]
         add     x11, x11, 1
         cmp     x11, GFX_PAL_BYTES
-        b.lt    gfx_pal_byte
+        b.lt    gfx_palette_byte
         mov     w0, 1
-gfx_pal_done:
+gfx_palette_done:
         ldp     x19, x20, [sp, 16]
         ldp     fp, lr, [sp], gfx_palette_dealloc
         ret
