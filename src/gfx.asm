@@ -47,6 +47,56 @@ define(gfx_fc_r, x22)
 define(gfx_fd_r, x23)
 define(gfx_fe_r, x24)
 define(gfx_fd32_r, w23)
+define(gfx_wt_r, x19)
+define(gfx_wk_r, x20)
+define(gfx_wd_r, x21)
+define(gfx_wf_r, x22)
+define(gfx_wgw_r, x23)
+define(gfx_wgh_r, x24)
+define(gfx_wst_r, x25)
+define(gfx_ww_r, x26)
+define(gfx_wx_r, x27)
+define(gfx_wy_r, x28)
+define(gfx_ue_r, x19)
+define(gfx_ue32_r, w19)
+define(gfx_us_r, x20)
+define(gfx_uo_r, x21)
+define(gfx_uy_r, x22)
+define(gfx_ut_r, x23)
+define(gfx_pw_r, x19)
+define(gfx_ph_r, x20)
+define(gfx_mb_r, x19)
+define(gfx_me_r, x20)
+define(gfx_my_r, x21)
+define(gfx_nb_r, x19)
+define(gfx_nx_r, x20)
+define(gfx_ny_r, x21)
+define(gfx_nc_r, x22)
+define(gfx_tb_r, x19)
+define(gfx_tv_r, x20)
+define(gfx_tw_r, x21)
+define(gfx_tg_r, x22)
+define(gfx_tx_r, x23)
+define(gfx_ty_r, x24)
+define(gfx_rb_r, x19)
+define(gfx_rx_r, x20)
+define(gfx_ry_r, x21)
+define(gfx_ob_r, x19)
+define(gfx_ost_r, x20)
+define(gfx_osc_r, x21)
+define(gfx_opy_r, x22)
+define(gfx_opy32_r, w22)
+define(gfx_ox0_r, x23)
+define(gfx_ocx_r, x23)
+define(gfx_ox1_r, x24)
+define(gfx_ocy_r, x24)
+define(gfx_oy0_r, x25)
+define(gfx_osh_r, x25)
+define(gfx_oy1_r, x26)
+define(gfx_oby_r, x26)
+define(gfx_oplan_r, x27)
+define(gfx_ol_r, x28)
+define(gfx_ff_r, x25)
 
 GFX_DIV_OFF = 512
 GFX_DIV_LO = -512
@@ -104,6 +154,60 @@ GFX_F3_ADV = ART_F3_W + 1
 GFX_F5_DIGITS = ART_DIGIT0 * ART_F5_STEP
 GFX_F3_DIGITS = ART_DIGIT0 * ART_F3_STEP
 
+// UI: elements in art_ui order, their layout in logical pixels, and the over screen's timeline
+GFX_E_WORD = 0
+GFX_E_PRESS = 1
+GFX_E_TBEST = 2
+GFX_E_READY = 3
+GFX_E_HINT = 4
+GFX_E_SPACE = 5
+GFX_E_OVER = 6
+GFX_E_LSCORE = 7
+GFX_E_LBEST = 8
+GFX_E_LMEDAL = 9
+GFX_E_NEW = 10
+GFX_E_PAUSED = 11
+GFX_E_ZOOM = 12
+GFX_UI_STRINGS = ART_UI_WORDS * 4
+GFX_UITAB_REC = 24
+GFX_UITAB_BYTES = ART_UI_WORDS * GFX_UITAB_REC
+GFX_UI_BYTES = 16384
+GFX_WBITS = 4096
+// an outlined word is its bitmap plus a one-pixel ring
+GFX_WORD_MAX = GFX_WBITS + 512
+GFX_UI_ROOM = GFX_UI_BYTES - GFX_WORD_MAX
+GFX_SDIGIT_BYTES = 64
+GFX_SDIGITS_BYTES = GFX_SDIGIT_BYTES * 10
+GFX_MEDAL_BYTES = ART_MEDAL1 * ART_MEDAL1
+GFX_SPARK_BYTES = ART_SPARK1 * ART_SPARK1
+GFX_WORD_Y = 52
+GFX_TPRESS_Y = 148
+GFX_TBEST_Y = 178
+GFX_ZOOM_Y = 6
+GFX_READY_Y = 60
+GFX_HINT_X = SIM_BIRD_X + SIM_BIRD_MID
+GFX_HINT_Y = 142
+GFX_PAUSE_Y = 100
+GFX_PROMPT_Y = 170
+GFX_PANEL_X0 = 16
+GFX_PANEL_X1 = 128
+GFX_PANEL_H = 60
+GFX_PANEL_LX = GFX_PANEL_X0 + 8
+GFX_PANEL_NX = GFX_PANEL_X1 - 8
+GFX_MEDAL_CX = GFX_PANEL_X0 + 22
+GFX_MEDAL_CY = 34
+GFX_DROP_LAST = 16
+GFX_DROP_BIAS = 32
+GFX_SLIDE_FROM = 16
+GFX_SLIDE_LAST = 24
+GFX_COUNT_FROM = GFX_SLIDE_FROM + GFX_SLIDE_LAST + 2
+// a sparkle spends eight ticks on each of four spots, shown for the first six
+GFX_SPARK_SHIFT = 3
+GFX_SPARK_MASK = 7
+GFX_SPARK_ON = 6
+GFX_SPOT_MASK = 3
+GFX_SPARK_BIAS = 8
+
         .section .rodata
 // per scale: display width, display height, row stride (a multiple of 16), cell rows
         .balign 8
@@ -114,6 +218,23 @@ gfx_geo:
         .hword  72, 128, 80, 64
         .hword  48, 86, 48, 43
         .hword  36, 64, 48, 32
+// GAME OVER's top edge for each tick of its drop, plus GFX_DROP_BIAS: a fall, then a bounce
+gfx_drop:
+        .hword  8, 9, 10, 14, 18, 23, 30, 38, 47, 57, 69, 82, 78, 76, 77, 80, 82
+// the panel's top edge for each tick of its slide up, easing out
+gfx_slide:
+        .hword  256, 237, 220, 205, 190, 177, 166, 155, 146, 138, 131, 125, 120
+        .hword  115, 111, 108, 106, 104, 102, 101, 101, 100, 100, 100, 100
+// per scale, the panel's rows from its top: label, number, label, number; s > 2 has no labels
+gfx_plan:
+        .hword  0, 0, 0, 0
+        .hword  5, 15, 31, 41
+        .hword  2, 16, 30, 44
+        .hword  6, 6, 33, 33
+        .hword  4, 4, 32, 32
+// sparkle spots around the medal's centre, plus GFX_SPARK_BIAS to stay unsigned
+gfx_sparks:
+        .byte   2, 2, 14, 4, 4, 14, 13, 13
 // per scale: hand-drawn bird frame width and height
 gfx_birdwh:
         .hword  0, 0, SIM_BIRD_W, SIM_BIRD_H, ART_BIRD2_W, ART_BIRD2_H, ART_BIRD3_W, ART_BIRD3_H
@@ -132,6 +253,23 @@ gfx_body:       .skip   GFX_BODY_STRIDE
 gfx_digit:      .skip   GFX_DIGITS_BYTES
 gfx_bits:       .skip   GFX_BITS_BYTES
 gfx_nums:       .skip   GFX_NUMS
+gfx_ui:         .skip   GFX_UI_BYTES
+gfx_wbits:      .skip   GFX_WBITS
+gfx_dbg:        .skip   GFX_WORD_MAX
+gfx_sdigit:     .skip   GFX_SDIGITS_BYTES
+gfx_medal:      .skip   GFX_MEDAL_BYTES
+gfx_spark:      .skip   GFX_SPARK_BYTES
+        .balign 8
+gfx_uitab:      .skip   GFX_UITAB_BYTES
+gfx_numtxt:     .skip   8
+gfx_ncount:     .skip   8
+gfx_sdw:        .skip   8
+gfx_sdh:        .skip   8
+gfx_sdadv:      .skip   8
+gfx_medw:       .skip   8
+gfx_sparkw:     .skip   8
+gfx_dbgw:       .skip   8
+gfx_dbgh:       .skip   8
         .balign 8
         .global gfx_dw
         .global gfx_dh
@@ -892,6 +1030,9 @@ gfx_setup_dstore:
         bl      gfx_shrink
         bl      gfx_bake_bird
         bl      gfx_bake_digits
+        bl      gfx_bake_ui
+        ldr     x9, =gfx_dbgw
+        str     xzr, [x9]
         ldp     x19, x20, [sp, 16]
         ldp     x21, x22, [sp, 32]
         ldp     fp, lr, [sp], gfx_setup_dealloc
@@ -1159,8 +1300,8 @@ gfx_score_digit:
         ldp     fp, lr, [sp], gfx_score_dealloc
         ret
 
-// gfx_frame(x0 = back): composes the current game state into back
-gfx_frame_alloc = -(16 + 48) & -16
+// gfx_frame(x0 = back, w1 = flags, 1 paused and 2 debug): composes the game state into back
+gfx_frame_alloc = -(16 + 56) & -16
 gfx_frame_dealloc = 0 - gfx_frame_alloc
         .balign 4
         .global gfx_frame
@@ -1170,7 +1311,9 @@ gfx_frame:
         stp     x19, x20, [sp, 16]
         stp     x21, x22, [sp, 32]
         stp     x23, x24, [sp, 48]
+        str     x25, [sp, 64]
         mov     gfx_buf_r, x0
+        uxtw    gfx_ff_r, w1
         ldr     x9, =gfx_dh
         ldr     x9, [x9]
         ldr     x10, =gfx_stride
@@ -1283,15 +1426,846 @@ gfx_frame_bird:
         bl      gfx_blit
         ldr     x9, =sim_s
         ldr     x10, [x9, SIM_STATE]
-        cbz     x10, gfx_frame_done
-        cmp     x10, SIM_FADE
-        b.eq    gfx_frame_done
         mov     x0, gfx_buf_r
+        cbz     x10, gfx_frame_title
+        cmp     x10, SIM_FADE
+        b.eq    gfx_frame_extra
+        cmp     x10, SIM_OVER
+        b.eq    gfx_frame_over
         ldr     x1, [x9, SIM_SCORE]
         bl      gfx_score
+        ldr     x9, =sim_s
+        ldr     x10, [x9, SIM_STATE]
+        cmp     x10, SIM_READY
+        b.ne    gfx_frame_extra
+        mov     x0, gfx_buf_r
+        bl      gfx_ready
+        b       gfx_frame_extra
+gfx_frame_title:
+        bl      gfx_title
+        b       gfx_frame_extra
+gfx_frame_over:
+        bl      gfx_over
+gfx_frame_extra:
+        tbz     gfx_ff_r, 0, gfx_frame_debug
+        mov     x0, gfx_buf_r
+        mov     x1, GFX_E_PAUSED
+        mov     x2, GFX_PAUSE_Y
+        bl      gfx_ui_mid
+gfx_frame_debug:
+        tbz     gfx_ff_r, 1, gfx_frame_done
+        mov     x0, gfx_buf_r
+        ldr     x1, =gfx_dbg
+        ldr     x2, =gfx_dbgw
+        ldr     x2, [x2]
+        ldr     x3, =gfx_dbgh
+        ldr     x3, [x3]
+        mov     x4, 1
+        mov     x5, 1
+        bl      gfx_blit
 gfx_frame_done:
         ldp     x19, x20, [sp, 16]
         ldp     x21, x22, [sp, 32]
         ldp     x23, x24, [sp, 48]
+        ldr     x25, [sp, 64]
         ldp     fp, lr, [sp], gfx_frame_dealloc
+        ret
+
+// gfx_word(x0 = text, x1 = font 5 or 3, x2 = size k, x3 = dest, w4 = fill, w5 = edge)
+//   -> x0 = width, x1 = height, outline included; 0 x 0 when the text is empty or too big
+gfx_word_alloc = -(16 + 80 + 32) & -16
+gfx_word_dealloc = 0 - gfx_word_alloc
+gfx_word_text = 96
+gfx_word_fill = 104
+gfx_word_edge = 112
+gfx_word_h = 120
+        .balign 4
+gfx_word:
+        stp     fp, lr, [sp, gfx_word_alloc]!
+        mov     fp, sp
+        stp     x19, x20, [sp, 16]
+        stp     x21, x22, [sp, 32]
+        stp     x23, x24, [sp, 48]
+        stp     x25, x26, [sp, 64]
+        stp     x27, x28, [sp, 80]
+        str     x0, [sp, gfx_word_text]
+        str     w4, [sp, gfx_word_fill]
+        str     w5, [sp, gfx_word_edge]
+        mov     gfx_wk_r, x2
+        mov     gfx_wd_r, x3
+        ldr     gfx_wf_r, =art_font5
+        mov     gfx_wgw_r, ART_F5_W
+        mov     gfx_wgh_r, ART_F5_H
+        mov     gfx_wst_r, ART_F5_STEP
+        cmp     x1, ART_F5_W
+        b.eq    gfx_word_count
+        ldr     gfx_wf_r, =art_font3
+        mov     gfx_wgw_r, ART_F3_W
+        mov     gfx_wgh_r, ART_F3_H
+        mov     gfx_wst_r, ART_F3_STEP
+gfx_word_count:
+        // the widest line and the number of lines size the bitmap
+        mov     x9, x0
+        mov     x10, 0
+        mov     x11, 0
+        mov     x12, 1
+        b       gfx_word_ctest
+gfx_word_cchar:
+        add     x10, x10, 1
+        cmp     w13, ART_LINE
+        b.ne    gfx_word_cmax
+        add     x12, x12, 1
+        mov     x10, 0
+gfx_word_cmax:
+        cmp     x10, x11
+        csel    x11, x10, x11, gt
+        add     x9, x9, 1
+gfx_word_ctest:
+        ldrb    w13, [x9]
+        cbnz    w13, gfx_word_cchar
+        mov     x0, 0
+        mov     x1, 0
+        cbz     x11, gfx_word_done
+        add     x13, gfx_wgw_r, 1
+        mul     x13, x13, x11
+        sub     x13, x13, 1
+        mul     gfx_ww_r, x13, gfx_wk_r
+        add     x13, gfx_wgh_r, 1
+        mul     x13, x13, x12
+        sub     x13, x13, 1
+        mul     x13, x13, gfx_wk_r
+        str     x13, [sp, gfx_word_h]
+        mul     x9, gfx_ww_r, x13
+        cmp     x9, GFX_WBITS
+        b.hi    gfx_word_done
+        ldr     x10, =gfx_wbits
+gfx_word_clear:
+        strb    wzr, [x10], 1
+        subs    x9, x9, 1
+        b.ne    gfx_word_clear
+        mov     gfx_wx_r, 0
+        mov     gfx_wy_r, 0
+        ldr     gfx_wt_r, [sp, gfx_word_text]
+        b       gfx_word_test
+gfx_word_char:
+        cmp     w0, ART_LINE
+        b.ne    gfx_word_glyph
+        mov     gfx_wx_r, 0
+        add     x9, gfx_wgh_r, 1
+        madd    gfx_wy_r, x9, gfx_wk_r, gfx_wy_r
+        b       gfx_word_next
+gfx_word_glyph:
+        bl      art_glyph
+        tbnz    x0, 63, gfx_word_adv
+        madd    x9, x0, gfx_wst_r, gfx_wf_r
+        ldr     x2, =gfx_wbits
+        mov     x10, 0
+gfx_word_gy:
+        mov     x11, 0
+gfx_word_gx:
+        ldrb    w12, [x9], 1
+        cmp     w12, ART_SLASH
+        b.eq    gfx_word_gx
+        cmp     w12, ART_ON
+        b.ne    gfx_word_off
+        // one font pixel becomes a k x k block of the bitmap
+        madd    x13, x10, gfx_wk_r, gfx_wy_r
+        madd    x1, x11, gfx_wk_r, gfx_wx_r
+        mov     x14, 0
+gfx_word_brow:
+        add     x15, x13, x14
+        madd    x3, x15, gfx_ww_r, x2
+        add     x3, x3, x1
+        mov     x4, gfx_wk_r
+        mov     w5, 1
+gfx_word_bcol:
+        strb    w5, [x3], 1
+        subs    x4, x4, 1
+        b.ne    gfx_word_bcol
+        add     x14, x14, 1
+        cmp     x14, gfx_wk_r
+        b.lt    gfx_word_brow
+gfx_word_off:
+        add     x11, x11, 1
+        cmp     x11, gfx_wgw_r
+        b.lt    gfx_word_gx
+        add     x10, x10, 1
+        cmp     x10, gfx_wgh_r
+        b.lt    gfx_word_gy
+gfx_word_adv:
+        add     x9, gfx_wgw_r, 1
+        madd    gfx_wx_r, x9, gfx_wk_r, gfx_wx_r
+gfx_word_next:
+        add     gfx_wt_r, gfx_wt_r, 1
+gfx_word_test:
+        ldrb    w0, [gfx_wt_r]
+        cbnz    w0, gfx_word_char
+        ldr     x0, =gfx_wbits
+        mov     x1, gfx_ww_r
+        ldr     x2, [sp, gfx_word_h]
+        mov     x3, gfx_wd_r
+        ldr     w4, [sp, gfx_word_fill]
+        ldr     w5, [sp, gfx_word_edge]
+        bl      gfx_outline
+        add     x0, gfx_ww_r, 2
+        ldr     x1, [sp, gfx_word_h]
+        add     x1, x1, 2
+gfx_word_done:
+        ldp     x19, x20, [sp, 16]
+        ldp     x21, x22, [sp, 32]
+        ldp     x23, x24, [sp, 48]
+        ldp     x25, x26, [sp, 64]
+        ldp     x27, x28, [sp, 80]
+        ldp     fp, lr, [sp], gfx_word_dealloc
+        ret
+
+// gfx_bake_ui(): this scale's UI words, small digits, medal and sparkle
+gfx_bake_ui_alloc = -(16 + 40) & -16
+gfx_bake_ui_dealloc = 0 - gfx_bake_ui_alloc
+        .balign 4
+gfx_bake_ui:
+        stp     fp, lr, [sp, gfx_bake_ui_alloc]!
+        mov     fp, sp
+        stp     x19, x20, [sp, 16]
+        stp     x21, x22, [sp, 32]
+        str     x23, [sp, 48]
+        // art_ui holds each element's word for scales 1 to 4 in turn, so one pass finds them all
+        ldr     gfx_us_r, =art_ui
+        ldr     gfx_uy_r, =art_style
+        ldr     gfx_ut_r, =gfx_uitab
+        mov     gfx_uo_r, 0
+        mov     gfx_ue_r, 0
+gfx_ui_word:
+        and     x9, gfx_ue_r, 3
+        add     x9, x9, 1
+        ldr     x10, =gfx_scale
+        ldr     x10, [x10]
+        cmp     x9, x10
+        b.ne    gfx_ui_end
+        str     xzr, [gfx_ut_r, 8]
+        str     xzr, [gfx_ut_r, 16]
+        ldrb    w9, [gfx_us_r]
+        cbz     w9, gfx_ui_end
+        ldr     x9, =GFX_UI_ROOM
+        cmp     gfx_uo_r, x9
+        b.hi    gfx_ui_end
+        str     gfx_uo_r, [gfx_ut_r]
+        mov     x0, gfx_us_r
+        ldrb    w1, [gfx_uy_r]
+        ldrb    w2, [gfx_uy_r, 1]
+        ldr     x3, =gfx_ui
+        add     x3, x3, gfx_uo_r
+        ldrb    w4, [gfx_uy_r, 2]
+        ldrb    w5, [gfx_uy_r, 3]
+        bl      gfx_word
+        str     x0, [gfx_ut_r, 8]
+        str     x1, [gfx_ut_r, 16]
+        madd    gfx_uo_r, x0, x1, gfx_uo_r
+gfx_ui_end:
+        ldrb    w9, [gfx_us_r], 1
+        cbnz    w9, gfx_ui_end
+        add     gfx_uy_r, gfx_uy_r, 4
+        add     gfx_ue_r, gfx_ue_r, 1
+        tst     gfx_ue_r, 3
+        b.ne    gfx_ui_more
+        add     gfx_ut_r, gfx_ut_r, GFX_UITAB_REC
+gfx_ui_more:
+        cmp     gfx_ue_r, GFX_UI_STRINGS
+        b.lt    gfx_ui_word
+        // small digits for the panel and the title, drawn as one-character words
+        ldr     x9, =gfx_scale
+        ldr     x9, [x9]
+        mov     gfx_uy_r, ART_F5_W
+        cmp     x9, 1
+        b.eq    gfx_ui_digits
+        mov     gfx_uy_r, ART_F3_W
+gfx_ui_digits:
+        mov     gfx_ue_r, 0
+gfx_ui_digit:
+        ldr     x0, =gfx_numtxt
+        add     w9, gfx_ue32_r, ART_CHAR_0
+        strb    w9, [x0]
+        strb    wzr, [x0, 1]
+        mov     x1, gfx_uy_r
+        mov     x2, 1
+        ldr     x3, =gfx_sdigit
+        mov     x9, GFX_SDIGIT_BYTES
+        madd    x3, gfx_ue_r, x9, x3
+        mov     w4, SLOT_WHITE
+        mov     w5, SLOT_TOUT
+        bl      gfx_word
+        add     gfx_ue_r, gfx_ue_r, 1
+        cmp     gfx_ue_r, GFX_DIGITS
+        b.lt    gfx_ui_digit
+        ldr     x9, =gfx_sdw
+        str     x0, [x9]
+        ldr     x9, =gfx_sdh
+        str     x1, [x9]
+        sub     x0, x0, 1
+        ldr     x9, =gfx_sdadv
+        str     x0, [x9]
+        // the medal and its sparkle are drawn at each size rather than shrunk
+        ldr     x9, =gfx_scale
+        ldr     x9, [x9]
+        ldr     x0, =art_medal1
+        mov     gfx_ue_r, ART_MEDAL1
+        ldr     gfx_us_r, =art_spark1
+        mov     gfx_uo_r, ART_SPARK1
+        cmp     x9, 1
+        b.eq    gfx_ui_medal
+        ldr     x0, =art_medal2
+        mov     gfx_ue_r, ART_MEDAL2
+        ldr     gfx_us_r, =art_spark2
+        mov     gfx_uo_r, ART_SPARK2
+        cmp     x9, 2
+        b.eq    gfx_ui_medal
+        ldr     x0, =art_medal3
+        mov     gfx_ue_r, ART_MEDAL3
+        ldr     gfx_us_r, =art_spark3
+        mov     gfx_uo_r, ART_SPARK3
+gfx_ui_medal:
+        ldr     x9, =gfx_medw
+        str     gfx_ue_r, [x9]
+        ldr     x9, =gfx_sparkw
+        str     gfx_uo_r, [x9]
+        ldr     x1, =art_l_medal
+        mul     x2, gfx_ue_r, gfx_ue_r
+        ldr     x3, =gfx_medal
+        bl      art_decode
+        mov     x0, gfx_us_r
+        ldr     x1, =art_l_medal
+        mul     x2, gfx_uo_r, gfx_uo_r
+        ldr     x3, =gfx_spark
+        bl      art_decode
+        ldp     x19, x20, [sp, 16]
+        ldp     x21, x22, [sp, 32]
+        ldr     x23, [sp, 48]
+        ldp     fp, lr, [sp], gfx_bake_ui_dealloc
+        ret
+
+// gfx_rect(x0 = back, x1 = x0, x2 = y0, x3 = x1, x4 = y1, w5 = slot): fills display [x0,x1) x [y0,y1)
+        .balign 4
+gfx_rect:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =gfx_dw
+        ldr     x9, [x9]
+        ldr     x10, =gfx_dh
+        ldr     x10, [x10]
+        ldr     x11, =gfx_stride
+        ldr     x11, [x11]
+        cmp     x1, 0
+        csel    x1, x1, xzr, ge
+        cmp     x2, 0
+        csel    x2, x2, xzr, ge
+        cmp     x3, x9
+        csel    x3, x3, x9, le
+        cmp     x4, x10
+        csel    x4, x4, x10, le
+        cmp     x1, x3
+        b.ge    gfx_rect_done
+        b       gfx_rect_test
+gfx_rect_row:
+        madd    x12, x2, x11, x0
+        add     x12, x12, x1
+        sub     x13, x3, x1
+gfx_rect_px:
+        strb    w5, [x12], 1
+        subs    x13, x13, 1
+        b.ne    gfx_rect_px
+        add     x2, x2, 1
+gfx_rect_test:
+        cmp     x2, x4
+        b.lt    gfx_rect_row
+gfx_rect_done:
+        ldp     fp, lr, [sp], 16
+        ret
+
+// gfx_ui_w(x0 = element) -> x0 = its width at this scale, 0 when it is not drawn here
+        .balign 4
+gfx_ui_w:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =gfx_uitab
+        mov     x10, GFX_UITAB_REC
+        madd    x9, x0, x10, x9
+        ldr     x0, [x9, 8]
+        ldp     fp, lr, [sp], 16
+        ret
+
+// gfx_ui_put(x0 = back, x1 = element, x2 = x, x3 = y) -> x0 = width, x1 = height, 0 when absent
+gfx_ui_put_alloc = -(16 + 16) & -16
+gfx_ui_put_dealloc = 0 - gfx_ui_put_alloc
+        .balign 4
+gfx_ui_put:
+        stp     fp, lr, [sp, gfx_ui_put_alloc]!
+        mov     fp, sp
+        stp     x19, x20, [sp, 16]
+        ldr     x9, =gfx_uitab
+        mov     x10, GFX_UITAB_REC
+        madd    x9, x1, x10, x9
+        ldr     gfx_pw_r, [x9, 8]
+        ldr     gfx_ph_r, [x9, 16]
+        cbz     gfx_pw_r, gfx_ui_put_done
+        ldr     x10, [x9]
+        ldr     x1, =gfx_ui
+        add     x1, x1, x10
+        mov     x4, x2
+        mov     x5, x3
+        mov     x2, gfx_pw_r
+        mov     x3, gfx_ph_r
+        bl      gfx_blit
+gfx_ui_put_done:
+        mov     x0, gfx_pw_r
+        mov     x1, gfx_ph_r
+        ldp     x19, x20, [sp, 16]
+        ldp     fp, lr, [sp], gfx_ui_put_dealloc
+        ret
+
+// gfx_ui_mid(x0 = back, x1 = element, x2 = logical y) -> x0 = width, x1 = height, x2 = display y
+gfx_ui_mid_alloc = -(16 + 24) & -16
+gfx_ui_mid_dealloc = 0 - gfx_ui_mid_alloc
+        .balign 4
+gfx_ui_mid:
+        stp     fp, lr, [sp, gfx_ui_mid_alloc]!
+        mov     fp, sp
+        stp     x19, x20, [sp, 16]
+        str     x21, [sp, 32]
+        mov     gfx_mb_r, x0
+        mov     gfx_me_r, x1
+        mov     x0, x2
+        bl      gfx_d
+        mov     gfx_my_r, x0
+        mov     x0, gfx_me_r
+        bl      gfx_ui_w
+        ldr     x2, =gfx_dw
+        ldr     x2, [x2]
+        sub     x2, x2, x0
+        asr     x2, x2, 1
+        mov     x0, gfx_mb_r
+        mov     x1, gfx_me_r
+        mov     x3, gfx_my_r
+        bl      gfx_ui_put
+        mov     x2, gfx_my_r
+        ldp     x19, x20, [sp, 16]
+        ldr     x21, [sp, 32]
+        ldp     fp, lr, [sp], gfx_ui_mid_dealloc
+        ret
+
+// gfx_numw(x0 = value) -> x0 = width in small digits; leaves the digits split in gfx_nums
+        .balign 4
+gfx_numw:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =gfx_nums
+        mov     x10, 0
+        mov     x11, 10
+gfx_numw_split:
+        udiv    x12, x0, x11
+        msub    x13, x12, x11, x0
+        strb    w13, [x9, x10]
+        add     x10, x10, 1
+        mov     x0, x12
+        cbnz    x0, gfx_numw_split
+        ldr     x9, =gfx_ncount
+        str     x10, [x9]
+        sub     x10, x10, 1
+        ldr     x9, =gfx_sdadv
+        ldr     x9, [x9]
+        ldr     x11, =gfx_sdw
+        ldr     x11, [x11]
+        madd    x0, x10, x9, x11
+        ldp     fp, lr, [sp], 16
+        ret
+
+// gfx_num(x0 = back, x1 = value, x2 = left x, x3 = y): the value in small digits
+gfx_num_alloc = -(16 + 32) & -16
+gfx_num_dealloc = 0 - gfx_num_alloc
+        .balign 4
+gfx_num:
+        stp     fp, lr, [sp, gfx_num_alloc]!
+        mov     fp, sp
+        stp     x19, x20, [sp, 16]
+        stp     x21, x22, [sp, 32]
+        mov     gfx_nb_r, x0
+        mov     gfx_nx_r, x2
+        mov     gfx_ny_r, x3
+        mov     x0, x1
+        bl      gfx_numw
+        ldr     x9, =gfx_ncount
+        ldr     gfx_nc_r, [x9]
+gfx_num_digit:
+        sub     gfx_nc_r, gfx_nc_r, 1
+        ldr     x9, =gfx_nums
+        ldrb    w10, [x9, gfx_nc_r]
+        ldr     x1, =gfx_sdigit
+        mov     x9, GFX_SDIGIT_BYTES
+        madd    x1, x10, x9, x1
+        mov     x0, gfx_nb_r
+        ldr     x2, =gfx_sdw
+        ldr     x2, [x2]
+        ldr     x3, =gfx_sdh
+        ldr     x3, [x3]
+        mov     x4, gfx_nx_r
+        mov     x5, gfx_ny_r
+        bl      gfx_blit
+        ldr     x9, =gfx_sdadv
+        ldr     x9, [x9]
+        add     gfx_nx_r, gfx_nx_r, x9
+        cbnz    gfx_nc_r, gfx_num_digit
+        ldp     x19, x20, [sp, 16]
+        ldp     x21, x22, [sp, 32]
+        ldp     fp, lr, [sp], gfx_num_dealloc
+        ret
+
+// gfx_medal_of(x0 = score) -> x0 = 0 for none, else 1 bronze to 4 platinum
+        .balign 4
+gfx_medal_of:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        mov     x9, 0
+        b       gfx_medal_test
+gfx_medal_up:
+        sub     x0, x0, GFX_MEDAL_STEP
+        add     x9, x9, 1
+gfx_medal_test:
+        cmp     x9, GFX_MEDALS
+        b.ge    gfx_medal_done
+        cmp     x0, GFX_MEDAL_STEP
+        b.ge    gfx_medal_up
+gfx_medal_done:
+        mov     x0, x9
+        ldp     fp, lr, [sp], 16
+        ret
+
+// gfx_title(x0 = back): the wordmark, the prompt, the best score, and at s > 1 the zoom hint
+gfx_title_alloc = -(16 + 48) & -16
+gfx_title_dealloc = 0 - gfx_title_alloc
+        .balign 4
+gfx_title:
+        stp     fp, lr, [sp, gfx_title_alloc]!
+        mov     fp, sp
+        stp     x19, x20, [sp, 16]
+        stp     x21, x22, [sp, 32]
+        stp     x23, x24, [sp, 48]
+        mov     gfx_tb_r, x0
+        mov     x1, GFX_E_WORD
+        mov     x2, GFX_WORD_Y
+        bl      gfx_ui_mid
+        mov     x0, gfx_tb_r
+        mov     x1, GFX_E_PRESS
+        mov     x2, GFX_TPRESS_Y
+        bl      gfx_ui_mid
+        mov     x0, gfx_tb_r
+        mov     x1, GFX_E_ZOOM
+        mov     x2, GFX_ZOOM_Y
+        bl      gfx_ui_mid
+        // label, a one-digit gap, then the number, centred as one line
+        ldr     x9, =save_best
+        ldr     gfx_tv_r, [x9]
+        cbz     gfx_tv_r, gfx_title_done
+        mov     x0, GFX_E_TBEST
+        bl      gfx_ui_w
+        mov     gfx_tw_r, x0
+        mov     x0, gfx_tv_r
+        bl      gfx_numw
+        ldr     x9, =gfx_sdadv
+        ldr     gfx_tg_r, [x9]
+        add     x9, gfx_tw_r, gfx_tg_r
+        add     x9, x9, x0
+        ldr     x10, =gfx_dw
+        ldr     x10, [x10]
+        sub     x10, x10, x9
+        asr     gfx_tx_r, x10, 1
+        mov     x0, GFX_TBEST_Y
+        bl      gfx_d
+        mov     gfx_ty_r, x0
+        mov     x0, gfx_tb_r
+        mov     x1, GFX_E_TBEST
+        mov     x2, gfx_tx_r
+        mov     x3, gfx_ty_r
+        bl      gfx_ui_put
+        add     x2, gfx_tx_r, gfx_tw_r
+        add     x2, x2, gfx_tg_r
+        mov     x0, gfx_tb_r
+        mov     x1, gfx_tv_r
+        mov     x3, gfx_ty_r
+        bl      gfx_num
+gfx_title_done:
+        ldp     x19, x20, [sp, 16]
+        ldp     x21, x22, [sp, 32]
+        ldp     x23, x24, [sp, 48]
+        ldp     fp, lr, [sp], gfx_title_dealloc
+        ret
+
+// gfx_ready(x0 = back): GET READY, and an arrow under the bird with the key to press
+gfx_ready_alloc = -(16 + 24) & -16
+gfx_ready_dealloc = 0 - gfx_ready_alloc
+        .balign 4
+gfx_ready:
+        stp     fp, lr, [sp, gfx_ready_alloc]!
+        mov     fp, sp
+        stp     x19, x20, [sp, 16]
+        str     x21, [sp, 32]
+        mov     gfx_rb_r, x0
+        mov     x1, GFX_E_READY
+        mov     x2, GFX_READY_Y
+        bl      gfx_ui_mid
+        mov     x0, GFX_HINT_X
+        bl      gfx_d
+        mov     gfx_rx_r, x0
+        mov     x0, GFX_HINT_Y
+        bl      gfx_d
+        mov     gfx_ry_r, x0
+        mov     x0, GFX_E_HINT
+        bl      gfx_ui_w
+        sub     x2, gfx_rx_r, x0, lsr 1
+        mov     x0, gfx_rb_r
+        mov     x1, GFX_E_HINT
+        mov     x3, gfx_ry_r
+        bl      gfx_ui_put
+        add     gfx_ry_r, gfx_ry_r, x1
+        mov     x0, GFX_E_SPACE
+        bl      gfx_ui_w
+        sub     x2, gfx_rx_r, x0, lsr 1
+        mov     x0, gfx_rb_r
+        mov     x1, GFX_E_SPACE
+        mov     x3, gfx_ry_r
+        bl      gfx_ui_put
+        ldp     x19, x20, [sp, 16]
+        ldr     x21, [sp, 32]
+        ldp     fp, lr, [sp], gfx_ready_dealloc
+        ret
+
+// gfx_over(x0 = back): GAME OVER drops in, the panel slides up, the score counts, then the
+// medal, its sparkle, the NEW badge and the prompt, all timed from the over state's tick
+gfx_over_alloc = -(16 + 80) & -16
+gfx_over_dealloc = 0 - gfx_over_alloc
+        .balign 4
+gfx_over:
+        stp     fp, lr, [sp, gfx_over_alloc]!
+        mov     fp, sp
+        stp     x19, x20, [sp, 16]
+        stp     x21, x22, [sp, 32]
+        stp     x23, x24, [sp, 48]
+        stp     x25, x26, [sp, 64]
+        stp     x27, x28, [sp, 80]
+        mov     gfx_ob_r, x0
+        ldr     x9, =sim_s
+        ldr     gfx_ost_r, [x9, SIM_ST]
+        ldr     gfx_osc_r, [x9, SIM_SCORE]
+        mov     x9, GFX_DROP_LAST
+        cmp     gfx_ost_r, x9
+        csel    x9, gfx_ost_r, x9, lt
+        ldr     x10, =gfx_drop
+        ldrh    w2, [x10, x9, lsl 1]
+        sub     x2, x2, GFX_DROP_BIAS
+        mov     x0, gfx_ob_r
+        mov     x1, GFX_E_OVER
+        bl      gfx_ui_mid
+        subs    x9, gfx_ost_r, GFX_SLIDE_FROM
+        b.lt    gfx_over_done
+        mov     x10, GFX_SLIDE_LAST
+        cmp     x9, x10
+        csel    x9, x9, x10, lt
+        ldr     x10, =gfx_slide
+        ldrh    gfx_opy32_r, [x10, x9, lsl 1]
+        mov     x0, GFX_PANEL_X0
+        bl      gfx_d
+        mov     gfx_ox0_r, x0
+        mov     x0, GFX_PANEL_X1
+        bl      gfx_d
+        mov     gfx_ox1_r, x0
+        mov     x0, gfx_opy_r
+        bl      gfx_d
+        mov     gfx_oy0_r, x0
+        add     x0, gfx_opy_r, GFX_PANEL_H
+        bl      gfx_d
+        mov     gfx_oy1_r, x0
+        mov     x0, gfx_ob_r
+        mov     x1, gfx_ox0_r
+        mov     x2, gfx_oy0_r
+        mov     x3, gfx_ox1_r
+        mov     x4, gfx_oy1_r
+        mov     w5, SLOT_PEDGE
+        bl      gfx_rect
+        mov     x0, gfx_ob_r
+        add     x1, gfx_ox0_r, 1
+        add     x2, gfx_oy0_r, 1
+        sub     x3, gfx_ox1_r, 1
+        sub     x4, gfx_oy1_r, 1
+        mov     w5, SLOT_PANEL
+        bl      gfx_rect
+        ldr     x9, =gfx_scale
+        ldr     x9, [x9]
+        ldr     gfx_oplan_r, =gfx_plan
+        add     gfx_oplan_r, gfx_oplan_r, x9, lsl 3
+        mov     x0, GFX_PANEL_NX
+        bl      gfx_d
+        mov     gfx_ox1_r, x0
+        mov     x0, GFX_PANEL_LX
+        bl      gfx_d
+        mov     gfx_ox0_r, x0
+        ldrh    w9, [gfx_oplan_r]
+        add     x0, gfx_opy_r, x9
+        bl      gfx_d
+        mov     x3, x0
+        mov     x0, gfx_ob_r
+        mov     x1, GFX_E_LMEDAL
+        mov     x2, gfx_ox0_r
+        bl      gfx_ui_put
+        mov     x0, GFX_E_LSCORE
+        bl      gfx_ui_w
+        sub     gfx_ol_r, gfx_ox1_r, x0
+        ldrh    w9, [gfx_oplan_r]
+        add     x0, gfx_opy_r, x9
+        bl      gfx_d
+        mov     x3, x0
+        mov     x0, gfx_ob_r
+        mov     x1, GFX_E_LSCORE
+        mov     x2, gfx_ol_r
+        bl      gfx_ui_put
+        mov     x0, GFX_E_LBEST
+        bl      gfx_ui_w
+        sub     gfx_ol_r, gfx_ox1_r, x0
+        ldrh    w9, [gfx_oplan_r, 4]
+        add     x0, gfx_opy_r, x9
+        bl      gfx_d
+        mov     x3, x0
+        mov     x0, gfx_ob_r
+        mov     x1, GFX_E_LBEST
+        mov     x2, gfx_ol_r
+        bl      gfx_ui_put
+        // the count runs quadratically, so a big score still lands in about a second
+        mov     gfx_osh_r, 0
+        subs    x9, gfx_ost_r, GFX_COUNT_FROM
+        b.lt    gfx_over_score
+        mul     x9, x9, x9
+        lsr     x9, x9, 2
+        cmp     x9, gfx_osc_r
+        csel    gfx_osh_r, x9, gfx_osc_r, lt
+gfx_over_score:
+        mov     x0, gfx_osh_r
+        bl      gfx_numw
+        sub     gfx_ol_r, gfx_ox1_r, x0
+        ldrh    w9, [gfx_oplan_r, 2]
+        add     x0, gfx_opy_r, x9
+        bl      gfx_d
+        mov     x3, x0
+        mov     x0, gfx_ob_r
+        mov     x1, gfx_osh_r
+        mov     x2, gfx_ol_r
+        bl      gfx_num
+        ldr     x9, =save_best
+        ldr     x0, [x9]
+        bl      gfx_numw
+        sub     gfx_ol_r, gfx_ox1_r, x0
+        ldrh    w9, [gfx_oplan_r, 6]
+        add     x0, gfx_opy_r, x9
+        bl      gfx_d
+        mov     gfx_oby_r, x0
+        mov     x0, gfx_ob_r
+        ldr     x9, =save_best
+        ldr     x1, [x9]
+        mov     x2, gfx_ol_r
+        mov     x3, gfx_oby_r
+        bl      gfx_num
+        // the medal and the badge wait for the count to land
+        cmp     gfx_ost_r, GFX_COUNT_FROM
+        b.lt    gfx_over_prompt
+        cmp     gfx_osh_r, gfx_osc_r
+        b.lt    gfx_over_prompt
+        ldr     x9, =save_new
+        ldr     x9, [x9]
+        cbz     x9, gfx_over_medal
+        mov     x0, GFX_E_NEW
+        bl      gfx_ui_w
+        sub     x2, gfx_ol_r, x0
+        sub     x2, x2, 1
+        mov     x0, gfx_ob_r
+        mov     x1, GFX_E_NEW
+        mov     x3, gfx_oby_r
+        bl      gfx_ui_put
+gfx_over_medal:
+        mov     x0, gfx_osc_r
+        bl      gfx_medal_of
+        cbz     x0, gfx_over_prompt
+        mov     x0, GFX_MEDAL_CX
+        bl      gfx_d
+        mov     gfx_ocx_r, x0
+        add     x0, gfx_opy_r, GFX_MEDAL_CY
+        bl      gfx_d
+        mov     gfx_ocy_r, x0
+        ldr     x9, =gfx_medw
+        ldr     x2, [x9]
+        sub     x4, gfx_ocx_r, x2, lsr 1
+        sub     x5, gfx_ocy_r, x2, lsr 1
+        mov     x3, x2
+        mov     x0, gfx_ob_r
+        ldr     x1, =gfx_medal
+        bl      gfx_blit
+        and     x9, gfx_ost_r, GFX_SPARK_MASK
+        cmp     x9, GFX_SPARK_ON
+        b.ge    gfx_over_prompt
+        lsr     x9, gfx_ost_r, GFX_SPARK_SHIFT
+        and     x9, x9, GFX_SPOT_MASK
+        ldr     x10, =gfx_sparks
+        add     x10, x10, x9, lsl 1
+        ldrb    w11, [x10]
+        sub     x11, x11, GFX_SPARK_BIAS
+        ldr     x12, =gfx_scale
+        ldr     x12, [x12]
+        sdiv    x11, x11, x12
+        add     gfx_ocx_r, gfx_ocx_r, x11
+        ldrb    w11, [x10, 1]
+        sub     x11, x11, GFX_SPARK_BIAS
+        sdiv    x11, x11, x12
+        add     gfx_ocy_r, gfx_ocy_r, x11
+        ldr     x9, =gfx_sparkw
+        ldr     x2, [x9]
+        sub     x4, gfx_ocx_r, x2, lsr 1
+        sub     x5, gfx_ocy_r, x2, lsr 1
+        mov     x3, x2
+        mov     x0, gfx_ob_r
+        ldr     x1, =gfx_spark
+        bl      gfx_blit
+gfx_over_prompt:
+        cmp     gfx_ost_r, SIM_OVER_LOCK
+        b.lt    gfx_over_done
+        mov     x0, gfx_ob_r
+        mov     x1, GFX_E_PRESS
+        mov     x2, GFX_PROMPT_Y
+        bl      gfx_ui_mid
+gfx_over_done:
+        ldp     x19, x20, [sp, 16]
+        ldp     x21, x22, [sp, 32]
+        ldp     x23, x24, [sp, 48]
+        ldp     x25, x26, [sp, 64]
+        ldp     x27, x28, [sp, 80]
+        ldp     fp, lr, [sp], gfx_over_dealloc
+        ret
+
+// gfx_overlay(x0 = text): the debug lines as one sprite, drawn in the corner while debug is on
+        .balign 4
+        .global gfx_overlay
+gfx_overlay:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =gfx_scale
+        ldr     x9, [x9]
+        mov     x1, ART_F5_W
+        cmp     x9, 1
+        b.eq    gfx_overlay_font
+        mov     x1, ART_F3_W
+gfx_overlay_font:
+        mov     x2, 1
+        ldr     x3, =gfx_dbg
+        mov     w4, SLOT_WHITE
+        mov     w5, SLOT_TOUT
+        bl      gfx_word
+        ldr     x9, =gfx_dbgw
+        str     x0, [x9]
+        ldr     x9, =gfx_dbgh
+        str     x1, [x9]
+        ldp     fp, lr, [sp], 16
         ret
