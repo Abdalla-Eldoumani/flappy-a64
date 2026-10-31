@@ -14,7 +14,6 @@ SIM_FNV_PRIME = 0x100000001b3
 
         .section .rodata
         .balign 4
-        .balign 4
         .global sim_wingframe
 sim_wingframe:
         .byte   0, 1, 2, 1
