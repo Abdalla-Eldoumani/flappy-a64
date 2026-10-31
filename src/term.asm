@@ -158,6 +158,8 @@ term_bad:       .skip   8
 term_bench:     .skip   8
 // bench byte counts: cursor moves, colours, glyphs, everything else
 term_bsplit:    .skip   32
+// bytes the flushes of a bench frame have counted so far; term_bench_take adds the rest
+term_bframe:    .skip   8
 term_inited:    .skip   8
 term_opened:    .skip   8
 term_scale:     .skip   8
@@ -266,10 +268,18 @@ term_putesc:
 term_flush:
         stp     fp, lr, [sp, -16]!
         mov     fp, sp
-        // a bench keeps the frame in the buffer for term_bench_take to count, unwritten
+        // a bench counts the bytes instead of writing them, so a frame bigger than the buffer
+        // is counted a buffer at a time
         ldr     x9, =term_bench
         ldr     x9, [x9]
-        cbnz    x9, term_flush_done
+        cbz     x9, term_flush_write
+        bl      term_bench_count
+        ldr     x9, =term_bframe
+        ldr     x10, [x9]
+        add     x10, x10, x0
+        str     x10, [x9]
+        b       term_flush_done
+term_flush_write:
         ldr     x9, =term_len
         ldr     x2, [x9]
         cbz     x2, term_flush_done
@@ -295,12 +305,9 @@ term_flush_done:
         ldp     fp, lr, [sp], 16
         ret
 
-// term_bench_take() -> x0 = bytes the bench frame produced, sorted into term_bsplit and dropped
-// shortcut: a bench frame must fit the buffer, which holds four full s = 1 repaints; revisit if
-// a frame ever grows past TERM_OUT_SIZE
+// term_bench_count() -> x0 = bytes in the buffer, sorted into term_bsplit, counted and dropped
         .balign 4
-        .global term_bench_take
-term_bench_take:
+term_bench_count:
         stp     fp, lr, [sp, -16]!
         mov     fp, sp
         ldr     x9, =term_len
@@ -313,44 +320,58 @@ term_bench_take:
         ldr     x9, =term_out
         ldr     x10, =term_bsplit
         mov     x11, 0
-        b       term_take_test
-term_take_byte:
+        b       term_bench_count_test
+term_bench_count_byte:
         ldrb    w12, [x9, x11]
         cmp     w12, TERM_ESC
-        b.eq    term_take_seq
+        b.eq    term_bench_count_seq
         // a glyph byte, or the space that paints a cell
         mov     x13, TERM_SPLIT_GLYPH
         add     x11, x11, 1
         mov     x14, 1
-        b       term_take_add
-term_take_seq:
+        b       term_bench_count_add
+term_bench_count_seq:
         // an escape runs from ESC [ through its final byte, the first one from @ on
         add     x15, x11, 2
-term_take_scan:
+term_bench_count_scan:
         ldrb    w12, [x9, x15]
         add     x15, x15, 1
         cmp     w12, TERM_FINAL
-        b.lo    term_take_scan
+        b.lo    term_bench_count_scan
         sub     x14, x15, x11
         mov     x11, x15
         mov     x13, TERM_SPLIT_OTHER
         cmp     w12, TERM_FINAL_CUP
-        b.eq    term_take_cursor
+        b.eq    term_bench_count_cursor
         cmp     w12, TERM_FINAL_CUF
-        b.eq    term_take_cursor
+        b.eq    term_bench_count_cursor
         cmp     w12, TERM_FINAL_SGR
-        b.ne    term_take_add
+        b.ne    term_bench_count_add
         mov     x13, TERM_SPLIT_COLOUR
-        b       term_take_add
-term_take_cursor:
+        b       term_bench_count_add
+term_bench_count_cursor:
         mov     x13, TERM_SPLIT_CURSOR
-term_take_add:
+term_bench_count_add:
         ldr     x12, [x10, x13]
         add     x12, x12, x14
         str     x12, [x10, x13]
-term_take_test:
+term_bench_count_test:
         cmp     x11, x0
-        b.lt    term_take_byte
+        b.lt    term_bench_count_byte
+        ldp     fp, lr, [sp], 16
+        ret
+
+// term_bench_take() -> x0 = bytes the bench frame produced, counted and dropped
+        .balign 4
+        .global term_bench_take
+term_bench_take:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        bl      term_bench_count
+        ldr     x9, =term_bframe
+        ldr     x10, [x9]
+        add     x0, x0, x10
+        str     xzr, [x9]
         ldp     fp, lr, [sp], 16
         ret
 
