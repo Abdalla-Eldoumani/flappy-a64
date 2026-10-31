@@ -97,10 +97,12 @@ gfx_d:
         ret
 
 // gfx_setup(w0 = scale): geometry, the division table and the static background for this scale
+gfx_setup_alloc = -(16 + 48) & -16
+gfx_setup_dealloc = 0 - gfx_setup_alloc
         .balign 4
         .global gfx_setup
 gfx_setup:
-        stp     fp, lr, [sp, -64]!
+        stp     fp, lr, [sp, gfx_setup_alloc]!
         mov     fp, sp
         stp     x19, x20, [sp, 16]
         stp     x21, x22, [sp, 32]
@@ -165,13 +167,15 @@ gfx_setup_rtest:
         ldp     x19, x20, [sp, 16]
         ldp     x21, x22, [sp, 32]
         ldp     x23, x24, [sp, 48]
-        ldp     fp, lr, [sp], 64
+        ldp     fp, lr, [sp], gfx_setup_dealloc
         ret
 
 // gfx_rect(x0 = buf, x1 = x0, x2 = y0, x3 = x1, x4 = y1, w5 = slot): fills logical [x0,x1) x [y0,y1)
+gfx_rect_alloc = -(16 + 48) & -16
+gfx_rect_dealloc = 0 - gfx_rect_alloc
         .balign 4
 gfx_rect:
-        stp     fp, lr, [sp, -80]!
+        stp     fp, lr, [sp, gfx_rect_alloc]!
         mov     fp, sp
         stp     x19, x20, [sp, 16]
         stp     x21, x22, [sp, 32]
@@ -226,13 +230,15 @@ gfx_rect_done:
         ldp     x19, x20, [sp, 16]
         ldp     x21, x22, [sp, 32]
         ldp     x23, x24, [sp, 48]
-        ldp     fp, lr, [sp], 80
+        ldp     fp, lr, [sp], gfx_rect_dealloc
         ret
 
 // gfx_score(x0 = buf, x1 = value): placeholder digits, white over a dark outline, centred at the top
+gfx_score_alloc = -(16 + 80) & -16
+gfx_score_dealloc = 0 - gfx_score_alloc
         .balign 4
 gfx_score:
-        stp     fp, lr, [sp, -96]!
+        stp     fp, lr, [sp, gfx_score_alloc]!
         mov     fp, sp
         stp     x19, x20, [sp, 16]
         stp     x21, x22, [sp, 32]
@@ -311,14 +317,16 @@ gfx_score_done:
         ldp     x23, x24, [sp, 48]
         ldp     x25, x26, [sp, 64]
         ldp     x27, x28, [sp, 80]
-        ldp     fp, lr, [sp], 96
+        ldp     fp, lr, [sp], gfx_score_dealloc
         ret
 
 // gfx_frame(x0 = back): composes the current game state into back
+gfx_frame_alloc = -(16 + 48) & -16
+gfx_frame_dealloc = 0 - gfx_frame_alloc
         .balign 4
         .global gfx_frame
 gfx_frame:
-        stp     fp, lr, [sp, -64]!
+        stp     fp, lr, [sp, gfx_frame_alloc]!
         mov     fp, sp
         stp     x19, x20, [sp, 16]
         stp     x21, x22, [sp, 32]
@@ -459,5 +467,5 @@ gfx_frame_done:
         ldp     x19, x20, [sp, 16]
         ldp     x21, x22, [sp, 32]
         ldp     x23, x24, [sp, 48]
-        ldp     fp, lr, [sp], 64
+        ldp     fp, lr, [sp], gfx_frame_dealloc
         ret
