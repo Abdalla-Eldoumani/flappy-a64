@@ -51,13 +51,14 @@ define(gfx_fd32_r, w23)
 GFX_DIV_OFF = 512
 GFX_DIV_LO = -512
 GFX_DIV_MAX = 511
+// the scratch is as wide as the ground strip: the playfield plus room to scroll
 GFX_LSTRIDE = 240
-GFX_STRIP_W = 240
+GFX_STRIP_W = GFX_LSTRIDE
 GFX_SKY_SPLIT = 128
 GFX_CLOUD_Y = 130
-GFX_CITY_Y = 158
-GFX_BUSH_Y = 184
-GFX_DIRT_Y = 212
+GFX_BUSH_Y = GROUND_Y - ART_BUSH_H
+GFX_CITY_Y = GFX_BUSH_Y - ART_CITY_H
+GFX_DIRT_Y = GROUND_Y + ART_GROUND_H
 GFX_SCORE_Y = 18
 GFX_BOX = 24
 // baked angles run from SIM_TILT_DRAW_MAX down to SIM_TILT_MIN, a step apart
@@ -70,7 +71,14 @@ GFX_BREATH = 200000
 GFX_MS = 1000000
 // a byte times this is that byte in all eight lanes of a word
 GFX_BYTES8 = 0x0101010101010101
-GFX_DIGIT_BYTES = 96
+GFX_DIGITS = 10
+GFX_DIGIT_BYTES = (ART_BIG_W + 2) * (ART_BIG_H + 2)
+GFX_DIGITS_BYTES = GFX_DIGIT_BYTES * GFX_DIGITS
+// the city tile is the largest sprite decoded into the scratch sprite
+GFX_SPRITE_BYTES = ART_CITY_PX
+GFX_BITS_BYTES = ART_BIG_W * ART_BIG_H
+// a 64-bit number has at most twenty digits
+GFX_NUMS = 20
 // x times this, shifted right 16, is x / GFX_ANGLE_STEP for every tilt the sim reaches
 GFX_STEP_RECIP = 65536 / GFX_ANGLE_STEP + 1
 // instructions each heavy init loop spends per unit of work, counted toward the next sleep
@@ -105,7 +113,8 @@ gfx_geo:
         .hword  36, 64, 48, 32
 // per scale: hand-drawn bird frame width and height
 gfx_birdwh:
-        .hword  0, 0, 17, 12, 9, 6, 6, 4, 5, 3
+        .hword  0, 0, SIM_BIRD_W, SIM_BIRD_H, ART_BIRD2_W, ART_BIRD2_H, ART_BIRD3_W, ART_BIRD3_H
+        .hword  ART_BIRD4_W, ART_BIRD4_H
 
         .bss
         .balign 64
@@ -114,12 +123,12 @@ gfx_bg:         .skip   GFX_MAX_BUF
 gfx_ground:     .skip   GFX_STRIP_BYTES
 gfx_rot:        .skip   GFX_ROT_BYTES
 gfx_div:        .skip   GFX_DIV_BYTES
-gfx_sprite:     .skip   1280
-gfx_cap:        .skip   320
+gfx_sprite:     .skip   GFX_SPRITE_BYTES
+gfx_cap:        .skip   ART_CAP_PX
 gfx_body:       .skip   GFX_BODY_STRIDE
-gfx_digit:      .skip   960
-gfx_bits:       .skip   128
-gfx_nums:       .skip   16
+gfx_digit:      .skip   GFX_DIGITS_BYTES
+gfx_bits:       .skip   GFX_BITS_BYTES
+gfx_nums:       .skip   GFX_NUMS
         .balign 8
         .global gfx_dw
         .global gfx_dh
@@ -697,7 +706,7 @@ gfx_digits_one:
         mov     w5, SLOT_TOUT
         bl      gfx_outline
         add     gfx_dig_r, gfx_dig_r, 1
-        cmp     gfx_dig_r, 10
+        cmp     gfx_dig_r, GFX_DIGITS
         b.lt    gfx_digits_one
         ldp     x19, x20, [sp, 16]
         ldp     x21, x22, [sp, 32]
