@@ -59,6 +59,12 @@ main_s_scale:       .asciz  "_S"
 main_s_full:        .asciz  " FULL"
 main_s_lite:        .asciz  " LITE"
 main_s_drop:        .asciz  "_DROP "
+main_s_dbg_end:
+// the overlay's text holds every word above, five numbers and a zero; main_fmt_dec writes at
+// most MAIN_DEC_MAX characters for one number
+MAIN_DEC_MAX = 20
+MAIN_DBG_NUMS = 5
+MAIN_DBG_BYTES = main_s_dbg_end - main_s_fps + MAIN_DBG_NUMS * MAIN_DEC_MAX + 1
 main_e_tty:
         .ascii  "flappy: stdin is not a terminal; --headless and --render-out run without one"
         .byte   10
@@ -117,7 +123,7 @@ main_dbgn:      .skip   8
 main_fpst:      .skip   8
 main_fpsn:      .skip   8
 main_lastb:     .skip   8
-main_dbgtxt:    .skip   64
+main_dbgtxt:    .skip   MAIN_DBG_BYTES
         .balign 8
         .global main_pace
 main_pace:      .skip   8
