@@ -337,17 +337,17 @@ gfx_tile_next:
 
 // gfx_shrink(x0 = src, x1 = w, x2 = h, x3 = src stride, x4 = dst, x5 = dst stride)
 // Each s x s block keeps its highest-priority slot, so outlines and eyes survive scaling down.
-gfx_shrink_alloc = -(16 + 80) & -16
+gfx_shrink_alloc = -(16 + 72) & -16
 gfx_shrink_dealloc = 0 - gfx_shrink_alloc
         .balign 4
 gfx_shrink:
         stp     fp, lr, [sp, gfx_shrink_alloc]!
         mov     fp, sp
-        stp     x19, x20, [sp, 16]
-        stp     x21, x22, [sp, 32]
-        stp     x23, x24, [sp, 48]
-        stp     x25, x26, [sp, 64]
-        stp     x27, x28, [sp, 80]
+        stp     x20, x21, [sp, 16]
+        stp     x22, x23, [sp, 32]
+        stp     x24, x25, [sp, 48]
+        stp     x26, x27, [sp, 64]
+        str     x28, [sp, 80]
         mov     gfx_src_r, x0
         mov     gfx_w_r, x1
         mov     gfx_h_r, x2
@@ -402,11 +402,11 @@ gfx_shrink_bnext:
         add     gfx_y_r, gfx_y_r, gfx_s_r
         cmp     gfx_y_r, gfx_h_r
         b.lt    gfx_shrink_row
-        ldp     x19, x20, [sp, 16]
-        ldp     x21, x22, [sp, 32]
-        ldp     x23, x24, [sp, 48]
-        ldp     x25, x26, [sp, 64]
-        ldp     x27, x28, [sp, 80]
+        ldp     x20, x21, [sp, 16]
+        ldp     x22, x23, [sp, 32]
+        ldp     x24, x25, [sp, 48]
+        ldp     x26, x27, [sp, 64]
+        ldr     x28, [sp, 80]
         ldp     fp, lr, [sp], gfx_shrink_dealloc
         ret
 
@@ -966,17 +966,17 @@ gfx_blit_done:
 
 // gfx_pipe_rows(x0 = back, x1 = src row, x2 = src stride, x3 = x, x4 = w, x5 = first row, x6 = end)
 // copies one opaque pipe part over display rows [first, end), clipped at the edges
-gfx_pipe_rows_alloc = -(16 + 80) & -16
+gfx_pipe_rows_alloc = -(16 + 72) & -16
 gfx_pipe_rows_dealloc = 0 - gfx_pipe_rows_alloc
         .balign 4
 gfx_pipe_rows:
         stp     fp, lr, [sp, gfx_pipe_rows_alloc]!
         mov     fp, sp
         stp     x19, x20, [sp, 16]
-        stp     x21, x22, [sp, 32]
-        stp     x23, x24, [sp, 48]
-        stp     x25, x26, [sp, 64]
-        stp     x27, x28, [sp, 80]
+        stp     x21, x23, [sp, 32]
+        stp     x24, x25, [sp, 48]
+        stp     x26, x27, [sp, 64]
+        str     x28, [sp, 80]
         mov     gfx_buf_r, x0
         mov     gfx_src_r, x1
         mov     gfx_n_r, x2
@@ -1010,10 +1010,10 @@ gfx_pipe_test:
         b.lt    gfx_pipe_row
 gfx_pipe_done:
         ldp     x19, x20, [sp, 16]
-        ldp     x21, x22, [sp, 32]
-        ldp     x23, x24, [sp, 48]
-        ldp     x25, x26, [sp, 64]
-        ldp     x27, x28, [sp, 80]
+        ldp     x21, x23, [sp, 32]
+        ldp     x24, x25, [sp, 48]
+        ldp     x26, x27, [sp, 64]
+        ldr     x28, [sp, 80]
         ldp     fp, lr, [sp], gfx_pipe_rows_dealloc
         ret
 
