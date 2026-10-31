@@ -96,6 +96,8 @@ define(gfx_oy1_r, x26)
 define(gfx_oby_r, x26)
 define(gfx_oplan_r, x27)
 define(gfx_ol_r, x28)
+define(gfx_pk_r, x19)
+define(gfx_pc_r, x20)
 define(gfx_ff_r, x25)
 
 GFX_DIV_OFF = 512
@@ -180,6 +182,7 @@ GFX_SDIGIT_BYTES = 64
 GFX_SDIGITS_BYTES = GFX_SDIGIT_BYTES * 10
 GFX_MEDAL_BYTES = ART_MEDAL1 * ART_MEDAL1
 GFX_SPARK_BYTES = ART_SPARK1 * ART_SPARK1
+GFX_PAL_BYTES = SLOT_COUNT * 4
 GFX_WORD_Y = 52
 GFX_TPRESS_Y = 148
 GFX_TBEST_Y = 178
@@ -207,6 +210,16 @@ GFX_SPARK_MASK = 7
 GFX_SPARK_ON = 6
 GFX_SPOT_MASK = 3
 GFX_SPARK_BIAS = 8
+GFX_FLASH_LEVELS = 3
+GFX_FLASH_STEP = GFX_FLASH_TICKS / GFX_FLASH_LEVELS
+GFX_DARK_LEVELS = 4
+GFX_FADE_STEP = SIM_FADE_TICKS / GFX_DARK_LEVELS
+GFX_FADEIN_TICKS = 12
+GFX_FADEIN_STEP = GFX_FADEIN_TICKS / GFX_DARK_LEVELS
+GFX_KEY_LEVEL = 7
+GFX_KEY_FLASH = 8
+GFX_KEY_DARK = 16
+GFX_TINT_SHIFT = 6
 
         .section .rodata
 // per scale: display width, display height, row stride (a multiple of 16), cell rows
@@ -259,6 +272,9 @@ gfx_dbg:        .skip   GFX_WORD_MAX
 gfx_sdigit:     .skip   GFX_SDIGITS_BYTES
 gfx_medal:      .skip   GFX_MEDAL_BYTES
 gfx_spark:      .skip   GFX_SPARK_BYTES
+        .balign 16
+        .global gfx_pal
+gfx_pal:        .skip   GFX_PAL_BYTES
         .balign 8
 gfx_uitab:      .skip   GFX_UITAB_BYTES
 gfx_numtxt:     .skip   8
@@ -268,6 +284,7 @@ gfx_sdh:        .skip   8
 gfx_sdadv:      .skip   8
 gfx_medw:       .skip   8
 gfx_sparkw:     .skip   8
+gfx_effkey:     .skip   8
 gfx_dbgw:       .skip   8
 gfx_dbgh:       .skip   8
         .balign 8
@@ -2243,6 +2260,120 @@ gfx_over_done:
         ldp     x25, x26, [sp, 64]
         ldp     x27, x28, [sp, 80]
         ldp     fp, lr, [sp], gfx_over_dealloc
+        ret
+
+// gfx_palette() -> w0 = 1 when gfx_pal changed: this run's look, then the hit flash or a fade
+gfx_palette_alloc = -(16 + 16) & -16
+gfx_palette_dealloc = 0 - gfx_palette_alloc
+        .balign 4
+        .global gfx_palette
+gfx_palette:
+        stp     fp, lr, [sp, gfx_palette_alloc]!
+        mov     fp, sp
+        stp     x19, x20, [sp, 16]
+        // the medal colours load only on the over screen, so a score of 10 mid-run repaints nothing
+        mov     x2, 0
+        ldr     x9, =sim_s
+        ldr     x10, [x9, SIM_STATE]
+        cmp     x10, SIM_OVER
+        b.ne    gfx_pal_look
+        ldr     x0, [x9, SIM_SCORE]
+        bl      gfx_medal_of
+        mov     x2, x0
+gfx_pal_look:
+        ldr     x9, =sim_s
+        ldr     x0, [x9, SIM_THEME]
+        ldr     x1, [x9, SIM_BIRDC]
+        bl      art_build
+        mov     gfx_pc_r, x0
+        // the effect is a kind and a level, kept as one key: flash 1 to 3, dark 1 to 4
+        ldr     x9, =sim_s
+        ldr     x10, [x9, SIM_STATE]
+        ldr     x11, [x9, SIM_ST]
+        mov     gfx_pk_r, 0
+        cmp     x10, SIM_DYING
+        b.eq    gfx_pal_flash
+        cmp     x10, SIM_OVER
+        b.eq    gfx_pal_flash
+        cmp     x10, SIM_FADE
+        b.eq    gfx_pal_out
+        cmp     x10, SIM_READY
+        b.ne    gfx_pal_key
+        cmp     x11, GFX_FADEIN_TICKS
+        b.ge    gfx_pal_key
+        mov     x12, GFX_DARK_LEVELS
+        b       gfx_pal_intest
+gfx_pal_in:
+        sub     x11, x11, GFX_FADEIN_STEP
+        sub     x12, x12, 1
+gfx_pal_intest:
+        cmp     x11, GFX_FADEIN_STEP
+        b.ge    gfx_pal_in
+        add     gfx_pk_r, x12, GFX_KEY_DARK
+        b       gfx_pal_key
+gfx_pal_out:
+        mov     x12, 1
+        b       gfx_pal_outtest
+gfx_pal_outup:
+        sub     x11, x11, GFX_FADE_STEP
+        add     x12, x12, 1
+gfx_pal_outtest:
+        cmp     x11, GFX_FADE_STEP
+        b.ge    gfx_pal_outup
+        add     gfx_pk_r, x12, GFX_KEY_DARK
+        b       gfx_pal_key
+gfx_pal_flash:
+        ldr     x11, [x9, SIM_HITT]
+        cmp     x11, GFX_FLASH_TICKS
+        b.ge    gfx_pal_key
+        mov     x12, GFX_FLASH_LEVELS
+        b       gfx_pal_ftest
+gfx_pal_fdown:
+        sub     x11, x11, GFX_FLASH_STEP
+        sub     x12, x12, 1
+gfx_pal_ftest:
+        cmp     x11, GFX_FLASH_STEP
+        b.ge    gfx_pal_fdown
+        add     gfx_pk_r, x12, GFX_KEY_FLASH
+gfx_pal_key:
+        ldr     x9, =gfx_effkey
+        ldr     x10, [x9]
+        cmp     x10, gfx_pk_r
+        b.ne    gfx_pal_build
+        mov     w0, 0
+        cbz     gfx_pc_r, gfx_pal_done
+gfx_pal_build:
+        str     gfx_pk_r, [x9]
+        and     x12, gfx_pk_r, GFX_KEY_LEVEL
+        lsl     x12, x12, GFX_TINT_SHIFT
+        mov     x13, 256
+        sub     x13, x13, x12
+        ldr     x9, =art_pal
+        ldr     x10, =gfx_pal
+        mov     x11, 0
+gfx_pal_byte:
+        ldrb    w14, [x9, x11]
+        tst     gfx_pk_r, GFX_KEY_FLASH
+        b.ne    gfx_pal_white
+        tst     gfx_pk_r, GFX_KEY_DARK
+        b.eq    gfx_pal_put
+        mul     x14, x14, x13
+        lsr     x14, x14, 8
+        b       gfx_pal_put
+gfx_pal_white:
+        mov     x15, 255
+        sub     x15, x15, x14
+        mul     x15, x15, x12
+        add     x14, x14, x15, lsr 8
+gfx_pal_put:
+        strb    w14, [x10, x11]
+        add     x11, x11, 1
+        cmp     x11, GFX_PAL_BYTES
+        b.lt    gfx_pal_byte
+        mov     w0, 1
+gfx_pal_done:
+        ldp     x19, x20, [sp, 16]
+        ldp     fp, lr, [sp], gfx_palette_dealloc
         ret
 
 // gfx_overlay(x0 = text): the debug lines as one sprite, drawn in the corner while debug is on
