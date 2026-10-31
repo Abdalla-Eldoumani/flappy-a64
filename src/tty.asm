@@ -336,10 +336,12 @@ tty_feed_done:
         ret
 
 // tty_poll(x0 = tick): reads every waiting byte and decodes it; 0 and -EAGAIN both mean no key
+tty_poll_alloc = -(16 + 32) & -16
+tty_poll_dealloc = 0 - tty_poll_alloc
         .balign 4
         .global tty_poll
 tty_poll:
-        stp     fp, lr, [sp, -48]!
+        stp     fp, lr, [sp, tty_poll_alloc]!
         mov     fp, sp
         stp     x19, x20, [sp, 16]
         stp     x21, x22, [sp, 32]
@@ -385,7 +387,7 @@ tty_poll_esc:
 tty_poll_done:
         ldp     x19, x20, [sp, 16]
         ldp     x21, x22, [sp, 32]
-        ldp     fp, lr, [sp], 48
+        ldp     fp, lr, [sp], tty_poll_dealloc
         ret
 
 // tty_sleep(x0 = nanoseconds): nanosleep, split into seconds when needed
@@ -407,10 +409,12 @@ tty_sleep:
         ret
 
 // tty_write_all(w0 = fd, x1 = buf, x2 = len) -> w0 = 0 written, 1 cut short, 2 terminal gone
+tty_write_all_alloc = -(16 + 32) & -16
+tty_write_all_dealloc = 0 - tty_write_all_alloc
         .balign 4
         .global tty_write_all
 tty_write_all:
-        stp     fp, lr, [sp, -48]!
+        stp     fp, lr, [sp, tty_write_all_alloc]!
         mov     fp, sp
         stp     x19, x20, [sp, 16]
         stp     x21, x22, [sp, 32]
@@ -455,5 +459,5 @@ tty_wa_gone:
 tty_wa_done:
         ldp     x19, x20, [sp, 16]
         ldp     x21, x22, [sp, 32]
-        ldp     fp, lr, [sp], 48
+        ldp     fp, lr, [sp], tty_write_all_dealloc
         ret
