@@ -17,9 +17,18 @@ define(main_cap_r, x21)
 define(main_cnt_r, x22)
 define(main_sim_r, x19)
 define(main_dbg_r, x19)
+define(main_tl_r, x19)
+define(main_bt_r, x23)
+define(main_bv_r, x24)
 
 MAIN_HEADLESS = 1
 MAIN_RENDER = 2
+MAIN_BENCH = 3
+// a tally: minimum, maximum, sum, count
+MAIN_T_MIN = 0
+MAIN_T_MAX = 8
+MAIN_T_SUM = 16
+MAIN_T_N = 24
 MAIN_FLAP_MAX = 4096
 MAIN_DUMP_MAX = 1024
 MAIN_PERIOD = 16666667
@@ -40,6 +49,7 @@ MAIN_IDX_MODE = 420
         .section .rodata
 main_o_headless:    .asciz  "--headless"
 main_o_render:      .asciz  "--render-out"
+main_o_bench:       .asciz  "--bench"
 main_o_auto:        .asciz  "--autopilot"
 main_o_lite:        .asciz  "--lite"
 main_o_stats:       .asciz  "--stats"
@@ -52,6 +62,16 @@ main_o_size:        .asciz  "--size"
 main_s_idx:         .asciz  "render.idx"
 main_s_ppm:         .asciz  ".ppm"
 main_s_end:         .asciz  "END "
+main_s_bframes:     .asciz  "frames "
+main_s_bns:         .asciz  "; ns per frame "
+main_s_bbytes:      .asciz  "; bytes per frame "
+main_s_bmin:        .asciz  "min "
+main_s_bavg:        .asciz  " avg "
+main_s_bmax:        .asciz  " max "
+main_s_bcur:        .asciz  "; average cursor "
+main_s_bcol:        .asciz  " colour "
+main_s_bgly:        .asciz  " glyph "
+main_s_both:        .asciz  " other "
 main_s_fps:         .asciz  "FPS "
 main_s_bytes:       .asciz  "_B "
 main_s_avg:         .asciz  "_AVG "
@@ -117,6 +137,8 @@ main_start:     .skip   8
 main_idxfd:     .skip   8
 main_lastc:     .skip   8
 main_lastr:     .skip   8
+main_bns:       .skip   32
+main_bbytes:    .skip   32
 main_lastfl:    .skip   8
 main_prevst:    .skip   8
 main_dbgn:      .skip   8
@@ -406,8 +428,17 @@ main_parse_render:
         mov     x0, main_k_r
         ldr     x1, =main_o_render
         bl      main_streq
-        cbz     w0, main_parse_auto
+        cbz     w0, main_parse_bench
         mov     x9, MAIN_RENDER
+        ldr     x10, =main_mode
+        str     x9, [x10]
+        b       main_parse_next
+main_parse_bench:
+        mov     x0, main_k_r
+        ldr     x1, =main_o_bench
+        bl      main_streq
+        cbz     w0, main_parse_auto
+        mov     x9, MAIN_BENCH
         ldr     x10, =main_mode
         str     x9, [x10]
         b       main_parse_next
@@ -954,6 +985,176 @@ main_debug_done:
         ldp     fp, lr, [sp], main_debug_dealloc
         ret
 
+// main_tally(x0 = value, x1 = tally): folds one sample into its minimum, maximum, sum, count
+        .balign 4
+main_tally:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, [x1, MAIN_T_N]
+        ldr     x10, [x1, MAIN_T_MIN]
+        cmp     x0, x10
+        csel    x10, x0, x10, lo
+        cmp     x9, 0
+        csel    x10, x0, x10, eq
+        str     x10, [x1, MAIN_T_MIN]
+        ldr     x10, [x1, MAIN_T_MAX]
+        cmp     x0, x10
+        csel    x10, x0, x10, hi
+        str     x10, [x1, MAIN_T_MAX]
+        ldr     x10, [x1, MAIN_T_SUM]
+        add     x10, x10, x0
+        str     x10, [x1, MAIN_T_SUM]
+        add     x9, x9, 1
+        str     x9, [x1, MAIN_T_N]
+        ldp     fp, lr, [sp], 16
+        ret
+
+// main_put3(x0 = dest, x1 = tally) -> x0 = dest end: "min A avg B max C"
+main_put3_alloc = -(16 + 16) & -16
+main_put3_dealloc = 0 - main_put3_alloc
+        .balign 4
+main_put3:
+        stp     fp, lr, [sp, main_put3_alloc]!
+        mov     fp, sp
+        str     main_tl_r, [sp, 16]
+        mov     main_tl_r, x1
+        ldr     x1, =main_s_bmin
+        bl      main_cpy
+        mov     x1, x0
+        ldr     x0, [main_tl_r, MAIN_T_MIN]
+        bl      main_fmt_dec
+        ldr     x1, =main_s_bavg
+        bl      main_cpy
+        mov     x1, x0
+        ldr     x0, [main_tl_r, MAIN_T_SUM]
+        ldr     x9, [main_tl_r, MAIN_T_N]
+        cmp     x9, 0
+        csinc   x9, x9, xzr, ne
+        udiv    x0, x0, x9
+        bl      main_fmt_dec
+        ldr     x1, =main_s_bmax
+        bl      main_cpy
+        mov     x1, x0
+        ldr     x0, [main_tl_r, MAIN_T_MAX]
+        bl      main_fmt_dec
+        ldr     main_tl_r, [sp, 16]
+        ldp     fp, lr, [sp], main_put3_dealloc
+        ret
+
+// main_putavg(x0 = dest, x1 = label, x2 = total) -> x0 = dest end: the label, total / frames
+main_putavg_alloc = -(16 + 16) & -16
+main_putavg_dealloc = 0 - main_putavg_alloc
+        .balign 4
+main_putavg:
+        stp     fp, lr, [sp, main_putavg_alloc]!
+        mov     fp, sp
+        str     main_tl_r, [sp, 16]
+        mov     main_tl_r, x2
+        bl      main_cpy
+        mov     x1, x0
+        ldr     x9, =main_bns
+        ldr     x9, [x9, MAIN_T_N]
+        cmp     x9, 0
+        csinc   x9, x9, xzr, ne
+        udiv    x0, main_tl_r, x9
+        bl      main_fmt_dec
+        ldr     main_tl_r, [sp, 16]
+        ldp     fp, lr, [sp], main_putavg_dealloc
+        ret
+
+// main_bench(): renders and encodes the ticks without writing them, then prints the cost of a frame
+main_bench_alloc = -(16 + 24) & -16
+main_bench_dealloc = 0 - main_bench_alloc
+        .balign 4
+main_bench:
+        stp     fp, lr, [sp, main_bench_alloc]!
+        mov     fp, sp
+        stp     x22, x23, [sp, 16]
+        str     x24, [sp, 32]
+        ldr     x9, =term_bench
+        mov     x10, 1
+        str     x10, [x9]
+        bl      main_seed_sim
+        bl      save_best_load
+        mov     x0, LOG_W
+        mov     x1, LOG_H
+        bl      present_open
+        cbz     w0, main_render_small
+        bl      gfx_setup
+        bl      main_buffers
+        // the screen set-up is not a frame
+        bl      term_bench_take
+        ldr     x9, =term_bsplit
+        stp     xzr, xzr, [x9]
+        stp     xzr, xzr, [x9, 16]
+        mov     main_t_r, 0
+        b       main_bench_test
+main_bench_loop:
+        add     main_t_r, main_t_r, 1
+        mov     x0, main_t_r
+        bl      main_press
+        bl      sim_tick
+        bl      main_ended
+        ldr     x9, =main_lite
+        ldr     x9, [x9]
+        cbz     x9, main_bench_draw
+        tbnz    main_t_r, 0, main_bench_test
+main_bench_draw:
+        bl      main_clock
+        mov     main_bt_r, x0
+        mov     x0, main_t_r
+        bl      main_draw
+        bl      main_clock
+        sub     x0, x0, main_bt_r
+        ldr     x1, =main_bns
+        bl      main_tally
+        bl      term_bench_take
+        ldr     x1, =main_bbytes
+        bl      main_tally
+main_bench_test:
+        ldr     x9, =main_ticks
+        ldr     x9, [x9]
+        cmp     main_t_r, x9
+        b.lt    main_bench_loop
+        ldr     x0, =main_line
+        ldr     x1, =main_s_bframes
+        bl      main_cpy
+        mov     x1, x0
+        ldr     x9, =main_bns
+        ldr     x0, [x9, MAIN_T_N]
+        bl      main_fmt_dec
+        ldr     x1, =main_s_bns
+        bl      main_cpy
+        ldr     x1, =main_bns
+        bl      main_put3
+        ldr     x1, =main_s_bbytes
+        bl      main_cpy
+        ldr     x1, =main_bbytes
+        bl      main_put3
+        ldr     main_bv_r, =term_bsplit
+        ldr     x1, =main_s_bcur
+        ldr     x2, [main_bv_r]
+        bl      main_putavg
+        ldr     x1, =main_s_bcol
+        ldr     x2, [main_bv_r, 8]
+        bl      main_putavg
+        ldr     x1, =main_s_bgly
+        ldr     x2, [main_bv_r, 16]
+        bl      main_putavg
+        ldr     x1, =main_s_both
+        ldr     x2, [main_bv_r, 24]
+        bl      main_putavg
+        mov     w9, 10
+        strb    w9, [x0], 1
+        mov     x2, x0
+        ldr     x1, =main_line
+        mov     w0, 1
+        bl      main_write
+        ldp     x22, x23, [sp, 16]
+        ldr     x24, [sp, 32]
+        ldp     fp, lr, [sp], main_bench_dealloc
+        ret
+
 // main_render(): the full game with rendering into stdout, no terminal and no sleeping
 main_render_alloc = -(16 + 16) & -16
 main_render_dealloc = 0 - main_render_alloc
@@ -1298,8 +1499,13 @@ main:
         b       main_done
 main_not_headless:
         cmp     x9, MAIN_RENDER
-        b.ne    main_interactive
+        b.ne    main_not_render
         bl      main_render
+        b       main_done
+main_not_render:
+        cmp     x9, MAIN_BENCH
+        b.ne    main_interactive
+        bl      main_bench
         b       main_done
 main_interactive:
         bl      main_play
