@@ -8,7 +8,7 @@ define(save_y_r, x23)
 define(save_dw_r, x24)
 define(save_dh_r, x25)
 
-SAVE_FLAGS = 577
+SAVE_FLAGS = O_WRONLY + O_CREAT + O_TRUNC
 SAVE_MODE = 420
 
         .bss
@@ -43,7 +43,6 @@ save_ppm:
         ldr     save_dw_r, [x9]
         ldr     x9, =gfx_dh
         ldr     save_dh_r, [x9]
-        // header: P6, width, height, 255
         ldr     x1, =save_hdr
         mov     w10, 80
         strb    w10, [x1], 1
