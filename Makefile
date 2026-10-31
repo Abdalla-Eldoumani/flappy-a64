@@ -16,7 +16,7 @@ RUN := qemu-aarch64
 endif
 CFLAGS := -Wa,--fatal-warnings
 
-.PHONY: all bundle m4gate goldens physics bundlecheck encoder playground smoke test frames play clean
+.PHONY: all bundle m4gate goldens physics bundlecheck encoder playground envelope smoke test play clean
 
 all: build/flappy
 
@@ -62,6 +62,10 @@ encoder: build/flappy tests/node_modules
 
 playground: bundle
 	cd build && node ../tests/playground-check.mjs goldens
+
+# long: plays until a playground wall or 15 virtual minutes, then reports the budget numbers
+envelope: bundle
+	cd build && node ../tests/playground-check.mjs envelope
 
 smoke: build/flappy
 	cd build && bash ../tests/pty-smoke.sh $(RUN)
