@@ -73,10 +73,17 @@ GFX_BYTES8 = 0x0101010101010101
 GFX_DIGIT_BYTES = 96
 // x times this, shifted right 16, is x / GFX_ANGLE_STEP for every tilt the sim reaches
 GFX_STEP_RECIP = 65536 / GFX_ANGLE_STEP + 1
+// instructions each heavy init loop spends per unit of work, counted toward the next sleep
+GFX_COST_TILE = 16
+GFX_COST_SHRINK = 32
+GFX_COST_ROTATE = 48
+GFX_COST_OUTLINE = 300
+GFX_COST_DIV = 12
 GFX_LOGIC_BYTES = GFX_LSTRIDE * LOG_H
 GFX_STRIP_BYTES = GFX_STRIP_W * (LOG_H - GROUND_Y)
 GFX_ROT_BYTES = GFX_ANGLES * ART_FRAMES * GFX_BOX * GFX_BOX
 GFX_DIV_SIZE = GFX_DIV_OFF * 2
+GFX_DIV_COST = GFX_DIV_SIZE * GFX_COST_DIV
 GFX_DIV_BYTES = GFX_DIV_SIZE * 2
 GFX_BODY_STRIDE = 32
 // big digits keep a pixel between outlines; font digits share one outline column
@@ -237,8 +244,9 @@ gfx_up:
         ldp     fp, lr, [sp], 16
         ret
 
-// gfx_breath(x0 = instructions about to run): a 1 ms sleep every 200,000, as the playground needs
+// gfx_breath(x0 = instructions just run): a 1 ms sleep every 200,000, as the playground needs
         .balign 4
+        .global gfx_breath
 gfx_breath:
         stp     fp, lr, [sp, -16]!
         mov     fp, sp
@@ -311,7 +319,8 @@ gfx_tile_next:
         add     x11, x11, 1
         cmp     x11, x2
         b.lt    gfx_tile_row
-        lsl     x0, x4, 3
+        mov     x0, GFX_COST_TILE
+        mul     x0, x0, x4
         mul     x0, x0, x2
         bl      gfx_breath
         ldp     fp, lr, [sp], 16
@@ -377,7 +386,8 @@ gfx_shrink_bnext:
         cmp     gfx_x_r, gfx_w_r
         b.lt    gfx_shrink_px
         mul     x0, gfx_w_r, gfx_s_r
-        lsl     x0, x0, 4
+        mov     x9, GFX_COST_SHRINK
+        mul     x0, x0, x9
         bl      gfx_breath
         add     gfx_dst_r, gfx_dst_r, gfx_n_r
         add     gfx_y_r, gfx_y_r, gfx_s_r
@@ -484,6 +494,10 @@ gfx_outline_put:
         add     x9, gfx_w_r, 2
         cmp     gfx_x_r, x9
         b.lt    gfx_outline_px
+        add     x0, gfx_w_r, 2
+        mov     x9, GFX_COST_OUTLINE
+        mul     x0, x0, x9
+        bl      gfx_breath
         add     gfx_y_r, gfx_y_r, 1
         add     x9, gfx_h_r, 2
         cmp     gfx_y_r, x9
@@ -608,7 +622,8 @@ gfx_bake_frame:
         bl      gfx_rotate
         mul     x9, gfx_box_r, gfx_box_r
         add     gfx_dst_r, gfx_dst_r, x9
-        lsl     x0, x9, 5
+        mov     x0, GFX_COST_ROTATE
+        mul     x0, x0, x9
         bl      gfx_breath
         add     gfx_frm_r, gfx_frm_r, 1
         cmp     gfx_frm_r, ART_FRAMES
@@ -729,6 +744,8 @@ gfx_setup_dstore:
         add     x10, x10, 1
         cmp     x10, GFX_DIV_SIZE
         b.lt    gfx_setup_div
+        ldr     x0, =GFX_DIV_COST
+        bl      gfx_breath
         mov     x0, GROUND_Y
         bl      gfx_d
         mov     gfx_gy_r, x0
