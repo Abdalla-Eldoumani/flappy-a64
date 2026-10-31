@@ -47,7 +47,7 @@ verify keys 0 ""
 
 # each flap key alone must leave the title and keep a run going: pipes, and so the pipe body
 # colour of the day palette, reach the screen only in play. x is the control that must not.
-pipe='112;190;48'
+pipe='118;196;52'
 flapkey() {
   local name=$1 hex=$2 want=$3
   session "$name" --deadline 30 --key 1.0:$hex --key 1.6:$hex --key 2.1:$hex --key 2.6:$hex \
