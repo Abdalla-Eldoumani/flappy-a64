@@ -1,0 +1,8 @@
+{
+  "name": "flappy-a64-tests",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@xterm/headless": "6.0.0"
+  }
+}
