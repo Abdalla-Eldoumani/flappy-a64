@@ -58,8 +58,8 @@ frame is twenty times under its target.
 Gap rewriting was modelled before it was built. The s = 3 lite stream of B3's run (the same
 arguments with `--render-out` in place of `--bench`), replayed on a model screen, has 146,346
 cursor-forward moves, and rewriting the skipped cells with the pen as it stands would save
-148,559 of its 7,089,008 bytes (2.1%). Built, it saved 148,532 bytes of that stream and 1.3% at
-s = 1.
+148,559 of its 7,089,008 bytes (2.1%). Built, it saved 148,532 bytes of that stream, and 1.3%
+at s = 1.
 Spaces win only when every skipped cell is the pen's background: `ESC[C` jumps one cell in 3
 bytes and `ESC[nC` up to nine in 4, so one, two or three spaces are shorter and four are not.
 Checking the skipped cells costs steps, so it waited for the cheaper block test above.
@@ -70,7 +70,7 @@ Checking the skipped cells costs steps, so it waited for the cheaper block test 
 |---|---|---|
 | s = 1 full profile under 24 KB a frame on average in play | 16,577 bytes (B1) | yes |
 | Nothing written on unchanged frames | 0 bytes, the minimum B1 and B3 report; a frame that changes no cell takes back its synchronized-output code | yes |
-| CPU per rendered frame under 0.5 ms | 23.32 us of wall time at s = 1 (N), which bounds the CPU time | yes |
+| CPU per rendered frame under 0.5 ms | 23.18 us of wall time at s = 1 (N, measured again on the final code), which bounds the CPU time | yes |
 | Playground steps under 90% of the refill | 868,907 steps/s, 86.9% (E) | yes |
 | Playground bytes under 90% of the refill | 118,559 B/s, 118.6% (E) | no |
 | No stretch between sleeps near the 1,000,000-step stop | 170,526 steps at most, during set-up; no chunk at the stop (E) | yes |
