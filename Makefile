@@ -16,7 +16,7 @@ RUN := qemu-aarch64
 endif
 CFLAGS := -Wa,--fatal-warnings
 
-.PHONY: all bundle m4gate goldens physics bundlecheck encoder playground envelope smoke frames test play clean
+.PHONY: all bundle m4gate goldens physics bundlecheck encoder playground envelope smoke best frames test play clean
 
 all: build/flappy
 
@@ -67,14 +67,18 @@ playground: bundle
 envelope: bundle
 	cd build && node ../tests/playground-check.mjs envelope
 
-smoke: build/flappy
+smoke: build/flappy tests/node_modules
 	cd build && bash ../tests/pty-smoke.sh $(RUN)
+
+# the best score file across runs: written, read back, kept, ignored when corrupted
+best: build/flappy
+	cd build && bash ../tests/best.sh $(RUN)
 
 # named moments as PNGs and one contact sheet, build/frames/sheet.png
 frames: build/flappy
 	cd build && bash ../tests/frames.sh $(RUN)
 
-test: m4gate goldens physics bundlecheck encoder playground smoke
+test: m4gate goldens physics bundlecheck encoder playground smoke best
 
 play: build/flappy
 	cd build && $(RUN) ./flappy
