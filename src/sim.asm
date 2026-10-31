@@ -14,14 +14,6 @@ SIM_FNV_PRIME = 0x100000001b3
 
         .section .rodata
         .balign 4
-// shortcut: a solid 17 x 12 box stands in for the bird until the art supplies per-frame masks
-sim_mask:
-        .word   0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF
-        .word   0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF
-        .word   0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF
-        .word   0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF
-        .word   0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF
-        .word   0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF, 0x1FFFF
         .balign 4
         .global sim_wingframe
 sim_wingframe:
@@ -31,6 +23,8 @@ sim_wingframe:
         .balign 16
         .global sim_s
 sim_s:  .skip   SIM_SIZE
+// collision masks: three wing frames x twelve rows, bit k = column SIM_BIRD_X + k
+sim_mask:   .skip   SIM_MASKS_SIZE
 
         .text
 
@@ -102,6 +96,35 @@ sim_clear_test:
         ldp     fp, lr, [sp], 16
         ret
 
+// sim_masks(): masks from the scale 1 bird art, so collision always matches the drawing
+        .balign 4
+sim_masks:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =art_bird1
+        ldr     x10, =sim_mask
+        mov     x11, 0
+sim_masks_row:
+        mov     w12, 0
+        mov     x13, 0
+sim_masks_col:
+        ldrb    w14, [x9], 1
+        cmp     w14, ART_CLEAR
+        b.eq    sim_masks_clear
+        mov     w15, 1
+        lsl     w15, w15, w13
+        orr     w12, w12, w15
+sim_masks_clear:
+        add     x13, x13, 1
+        cmp     x13, SIM_BIRD_W
+        b.lt    sim_masks_col
+        str     w12, [x10, x11, lsl 2]
+        add     x11, x11, 1
+        cmp     x11, SIM_MASK_ROWS
+        b.lt    sim_masks_row
+        ldp     fp, lr, [sp], 16
+        ret
+
 // sim_init(x0 = seed): title state with every field reset
         .balign 4
         .global sim_init
@@ -127,6 +150,7 @@ sim_init_seeded:
         str     x10, [x9, SIM_BOBD]
         bl      sim_clear_pipes
         bl      sim_pick_look
+        bl      sim_masks
         ldp     fp, lr, [sp], 16
         ret
 
