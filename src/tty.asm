@@ -46,9 +46,11 @@ tty_dfield: .skip   8
         .global tty_flaps
         .global tty_quit
         .global tty_pause
+        .global tty_debug
 tty_flaps:  .skip   8
 tty_quit:   .skip   8
 tty_pause:  .skip   8
+tty_debug:  .skip   8
 
         .text
 
@@ -180,7 +182,7 @@ tty_flap_done:
         ldp     fp, lr, [sp], 16
         ret
 
-// tty_set(x0 = event word): marks quit or pause
+// tty_set(x0 = event word): marks quit, pause or debug
         .balign 4
 tty_set:
         stp     fp, lr, [sp, -16]!
@@ -226,6 +228,8 @@ tty_feed_ground:
         b.eq    tty_feed_quit
         cmp     w0, 3
         b.eq    tty_feed_quit
+        cmp     w11, 100
+        b.eq    tty_feed_debug
         b       tty_feed_done
 tty_feed_goesc:
         mov     x10, TTY_ESC
@@ -322,6 +326,10 @@ tty_feed_pause:
 tty_feed_quit:
         str     xzr, [x9]
         ldr     x0, =tty_quit
+        bl      tty_set
+        b       tty_feed_done
+tty_feed_debug:
+        ldr     x0, =tty_debug
         bl      tty_set
 tty_feed_done:
         ldp     fp, lr, [sp], 16
