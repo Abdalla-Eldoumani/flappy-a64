@@ -39,6 +39,16 @@ TERM_GUESS_R = 24
 TERM_OUT_LIMIT = TERM_OUT_SIZE - TERM_OUT_SLACK
 TERM_BREATH_CELLS = 800
 TERM_MS = 1000000
+// what the bench sorts its bytes by: ESC, the first final byte of a sequence, and three finals
+TERM_ESC = 27
+TERM_FINAL = 64
+TERM_FINAL_CUP = 72
+TERM_FINAL_CUF = 67
+TERM_FINAL_SGR = 109
+TERM_SPLIT_CURSOR = 0
+TERM_SPLIT_COLOUR = 8
+TERM_SPLIT_GLYPH = 16
+TERM_SPLIT_OTHER = 24
 // the notice's lines: what the terminal is, what the game needs, then four lines of how
 TERM_SMALL_LINES = 6
 // gfx_geo's entry for the largest scale, which is the smallest display: its columns and rows
@@ -135,6 +145,12 @@ term_last:      .skip   8
 term_full:      .skip   8
 term_bad:       .skip   8
 term_sync:      .skip   8
+        .balign 8
+        .global term_bench
+        .global term_bsplit
+term_bench:     .skip   8
+// bench byte counts: cursor moves, colours, glyphs, everything else
+term_bsplit:    .skip   32
 term_inited:    .skip   8
 term_opened:    .skip   8
 term_scale:     .skip   8
@@ -230,6 +246,10 @@ term_putesc:
 term_flush:
         stp     fp, lr, [sp, -16]!
         mov     fp, sp
+        // a bench keeps the frame in the buffer for term_bench_take to count, unwritten
+        ldr     x9, =term_bench
+        ldr     x9, [x9]
+        cbnz    x9, term_flush_done
         ldr     x9, =term_len
         ldr     x2, [x9]
         cbz     x2, term_flush_done
@@ -252,6 +272,65 @@ term_flush_gone:
         mov     w0, 0
         bl      main_exit
 term_flush_done:
+        ldp     fp, lr, [sp], 16
+        ret
+
+// term_bench_take() -> x0 = bytes the bench frame produced, sorted into term_bsplit and dropped
+// shortcut: a bench frame must fit the buffer, which holds four full s = 1 repaints; revisit if
+// a frame ever grows past TERM_OUT_SIZE
+        .balign 4
+        .global term_bench_take
+term_bench_take:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =term_len
+        ldr     x0, [x9]
+        str     xzr, [x9]
+        ldr     x9, =term_total
+        ldr     x10, [x9]
+        add     x10, x10, x0
+        str     x10, [x9]
+        ldr     x9, =term_out
+        ldr     x10, =term_bsplit
+        mov     x11, 0
+        b       term_take_test
+term_take_byte:
+        ldrb    w12, [x9, x11]
+        cmp     w12, TERM_ESC
+        b.eq    term_take_seq
+        // a glyph byte, or the space that paints a cell
+        mov     x13, TERM_SPLIT_GLYPH
+        add     x11, x11, 1
+        mov     x14, 1
+        b       term_take_add
+term_take_seq:
+        // an escape runs from ESC [ through its final byte, the first one from @ on
+        add     x15, x11, 2
+term_take_scan:
+        ldrb    w12, [x9, x15]
+        add     x15, x15, 1
+        cmp     w12, TERM_FINAL
+        b.lo    term_take_scan
+        sub     x14, x15, x11
+        mov     x11, x15
+        mov     x13, TERM_SPLIT_OTHER
+        cmp     w12, TERM_FINAL_CUP
+        b.eq    term_take_cursor
+        cmp     w12, TERM_FINAL_CUF
+        b.eq    term_take_cursor
+        cmp     w12, TERM_FINAL_SGR
+        b.ne    term_take_add
+        mov     x13, TERM_SPLIT_COLOUR
+        b       term_take_add
+term_take_cursor:
+        mov     x13, TERM_SPLIT_CURSOR
+term_take_add:
+        ldr     x12, [x10, x13]
+        add     x12, x12, x14
+        str     x12, [x10, x13]
+term_take_test:
+        cmp     x11, x0
+        b.lt    term_take_byte
         ldp     fp, lr, [sp], 16
         ret
 
