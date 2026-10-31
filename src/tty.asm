@@ -1,0 +1,458 @@
+// tty_: raw mode, terminal size, non-blocking input, key decoding, write_all and sleeping.
+
+define(tty_n_r, x19)
+define(tty_i_r, x20)
+define(tty_tick_r, x21)
+define(tty_reads_r, x22)
+define(tty_fd_r, w19)
+define(tty_buf_r, x20)
+define(tty_len_r, x21)
+define(tty_waits_r, x22)
+
+TTY_IFLAG = 0
+TTY_LFLAG = 12
+TTY_VTIME = 22
+TTY_VMIN = 23
+TTY_IOFF = 0x500
+TTY_LOFF = 0x800B
+TTY_INBUF = 64
+TTY_MAXREADS = 16
+TTY_MAXFLAPS = 8
+TTY_ESC_TICKS = 2
+TTY_WAIT_NS = 1000000
+TTY_WAIT_MAX = 2000
+
+TTY_GROUND = 0
+TTY_ESC = 1
+TTY_CSI = 2
+TTY_SS3 = 3
+TTY_MOUSE = 4
+
+        .bss
+        .balign 16
+tty_orig:   .skip   64
+tty_raw:    .skip   64
+tty_in:     .skip   TTY_INBUF
+tty_ws:     .skip   8
+tty_ts:     .skip   16
+tty_flags:  .skip   8
+tty_ok:     .skip   8
+tty_dstate: .skip   8
+tty_desc:   .skip   8
+tty_dfirst: .skip   8
+tty_dnum:   .skip   8
+tty_dfield: .skip   8
+        .global tty_flaps
+        .global tty_quit
+        .global tty_pause
+        .global tty_debug
+tty_flaps:  .skip   8
+tty_quit:   .skip   8
+tty_pause:  .skip   8
+tty_debug:  .skip   8
+
+        .text
+
+// tty_open() -> w0 = 0 in raw mode, -1 when stdin is not a terminal
+        .balign 4
+        .global tty_open
+tty_open:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        mov     x0, 0
+        mov     x1, TCGETS
+        ldr     x2, =tty_orig
+        mov     x8, SYS_IOCTL
+        svc     0
+        tbnz    x0, 63, tty_open_fail
+        ldr     x9, =tty_orig
+        ldr     x10, =tty_raw
+        ldp     x11, x12, [x9]
+        stp     x11, x12, [x10]
+        ldp     x11, x12, [x9, 16]
+        stp     x11, x12, [x10, 16]
+        ldp     x11, x12, [x9, 32]
+        stp     x11, x12, [x10, 32]
+        ldp     x11, x12, [x9, 48]
+        stp     x11, x12, [x10, 48]
+        // IXON off or Ctrl-S freezes output; ICRNL off so Enter arrives as CR
+        ldr     w11, [x10, TTY_IFLAG]
+        mov     w12, TTY_IOFF
+        bic     w11, w11, w12
+        str     w11, [x10, TTY_IFLAG]
+        ldr     w11, [x10, TTY_LFLAG]
+        mov     w12, TTY_LOFF
+        bic     w11, w11, w12
+        str     w11, [x10, TTY_LFLAG]
+        strb    wzr, [x10, TTY_VTIME]
+        strb    wzr, [x10, TTY_VMIN]
+        mov     x0, 0
+        mov     x1, TCSETS
+        ldr     x2, =tty_raw
+        mov     x8, SYS_IOCTL
+        svc     0
+        mov     x0, 0
+        mov     x1, F_GETFL
+        mov     x8, SYS_FCNTL
+        svc     0
+        ldr     x9, =tty_flags
+        str     x0, [x9]
+        // the playground ignores VMIN and VTIME, so only O_NONBLOCK makes reads return
+        orr     x2, x0, O_NONBLOCK
+        mov     x0, 0
+        mov     x1, F_SETFL
+        mov     x8, SYS_FCNTL
+        svc     0
+        ldr     x9, =tty_ok
+        mov     x10, 1
+        str     x10, [x9]
+        mov     w0, 0
+        b       tty_open_done
+tty_open_fail:
+        mov     w0, -1
+tty_open_done:
+        ldp     fp, lr, [sp], 16
+        ret
+
+// tty_close(): puts back the saved termios and fd flags; safe to call twice
+        .balign 4
+        .global tty_close
+tty_close:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =tty_ok
+        ldr     x10, [x9]
+        cbz     x10, tty_close_done
+        str     xzr, [x9]
+        mov     x0, 0
+        mov     x1, TCSETS
+        ldr     x2, =tty_orig
+        mov     x8, SYS_IOCTL
+        svc     0
+        ldr     x9, =tty_flags
+        ldr     x2, [x9]
+        mov     x0, 0
+        mov     x1, F_SETFL
+        mov     x8, SYS_FCNTL
+        svc     0
+tty_close_done:
+        ldp     fp, lr, [sp], 16
+        ret
+
+// tty_size() -> w0 = columns, w1 = rows; both 0 when unknown
+        .balign 4
+        .global tty_size
+tty_size:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =tty_ws
+        str     xzr, [x9]
+        mov     x0, 1
+        mov     x1, TIOCGWINSZ
+        mov     x2, x9
+        mov     x8, SYS_IOCTL
+        svc     0
+        mov     w1, 0
+        tbnz    x0, 63, tty_size_none
+        ldr     x9, =tty_ws
+        ldrh    w1, [x9]
+        ldrh    w0, [x9, 2]
+        cbz     w0, tty_size_none
+        cbnz    w1, tty_size_done
+tty_size_none:
+        mov     w0, 0
+        mov     w1, 0
+tty_size_done:
+        ldp     fp, lr, [sp], 16
+        ret
+
+// tty_flap(): queues one flap; a burst beyond the cap is dropped
+        .balign 4
+tty_flap:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =tty_flaps
+        ldr     x10, [x9]
+        cmp     x10, TTY_MAXFLAPS
+        b.ge    tty_flap_done
+        add     x10, x10, 1
+        str     x10, [x9]
+tty_flap_done:
+        ldp     fp, lr, [sp], 16
+        ret
+
+// tty_set(x0 = event word): marks quit, pause or debug
+        .balign 4
+tty_set:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, [x0]
+        add     x9, x9, 1
+        str     x9, [x0]
+        ldp     fp, lr, [sp], 16
+        ret
+
+// tty_feed(w0 = byte, x1 = tick): one byte through the key decoder
+        .balign 4
+tty_feed:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =tty_dstate
+        ldr     x10, [x9]
+        cmp     x10, TTY_ESC
+        b.eq    tty_feed_esc
+        cmp     x10, TTY_CSI
+        b.eq    tty_feed_csi
+        cmp     x10, TTY_SS3
+        b.eq    tty_feed_ss3
+        cmp     x10, TTY_MOUSE
+        b.eq    tty_feed_mouse
+tty_feed_ground:
+        cmp     w0, 27
+        b.eq    tty_feed_goesc
+        cmp     w0, 32
+        b.eq    tty_feed_flap
+        cmp     w0, 13
+        b.eq    tty_feed_flap
+        cmp     w0, 10
+        b.eq    tty_feed_flap
+        orr     w11, w0, 32
+        cmp     w11, 119
+        b.eq    tty_feed_flap
+        cmp     w11, 107
+        b.eq    tty_feed_flap
+        cmp     w11, 112
+        b.eq    tty_feed_pause
+        cmp     w11, 113
+        b.eq    tty_feed_quit
+        cmp     w0, 3
+        b.eq    tty_feed_quit
+        cmp     w11, 100
+        b.eq    tty_feed_debug
+        b       tty_feed_done
+tty_feed_goesc:
+        mov     x10, TTY_ESC
+        str     x10, [x9]
+        ldr     x11, =tty_desc
+        str     x1, [x11]
+        b       tty_feed_done
+tty_feed_esc:
+        cmp     w0, 91
+        b.eq    tty_feed_gocsi
+        cmp     w0, 79
+        b.eq    tty_feed_goss3
+        // a second ESC means the first was the Esc key on its own
+        cmp     w0, 27
+        b.eq    tty_feed_quit
+        str     xzr, [x9]
+        b       tty_feed_ground
+tty_feed_gocsi:
+        mov     x10, TTY_CSI
+        str     x10, [x9]
+        ldr     x11, =tty_dfirst
+        mov     x12, 1
+        str     x12, [x11]
+        b       tty_feed_done
+tty_feed_goss3:
+        mov     x10, TTY_SS3
+        str     x10, [x9]
+        b       tty_feed_done
+tty_feed_csi:
+        ldr     x11, =tty_dfirst
+        ldr     x12, [x11]
+        str     xzr, [x11]
+        cbz     x12, tty_feed_cbody
+        cmp     w0, 60
+        b.ne    tty_feed_cbody
+        mov     x10, TTY_MOUSE
+        str     x10, [x9]
+        ldr     x11, =tty_dnum
+        str     xzr, [x11]
+        ldr     x11, =tty_dfield
+        str     xzr, [x11]
+        b       tty_feed_done
+tty_feed_cbody:
+        cmp     w0, 64
+        b.lt    tty_feed_done
+        str     xzr, [x9]
+        cmp     w0, 65
+        b.eq    tty_feed_flap
+        b       tty_feed_done
+tty_feed_ss3:
+        str     xzr, [x9]
+        cmp     w0, 65
+        b.eq    tty_feed_flap
+        b       tty_feed_done
+tty_feed_mouse:
+        ldr     x11, =tty_dfield
+        ldr     x12, [x11]
+        sub     w13, w0, 48
+        cmp     w13, 9
+        b.hi    tty_feed_mnot
+        cbnz    x12, tty_feed_done
+        ldr     x14, =tty_dnum
+        ldr     x15, [x14]
+        mov     x2, 10
+        madd    x15, x15, x2, x13
+        mov     x2, 9999
+        cmp     x15, x2
+        csel    x15, x15, x2, le
+        str     x15, [x14]
+        b       tty_feed_done
+tty_feed_mnot:
+        cmp     w0, 59
+        b.ne    tty_feed_mend
+        add     x12, x12, 1
+        str     x12, [x11]
+        b       tty_feed_done
+tty_feed_mend:
+        str     xzr, [x9]
+        // only a left press acts; releases, motion and the wheel do not
+        cmp     w0, 77
+        b.ne    tty_feed_done
+        cmp     x12, 2
+        b.ne    tty_feed_done
+        ldr     x14, =tty_dnum
+        ldr     x15, [x14]
+        cbnz    x15, tty_feed_done
+tty_feed_flap:
+        bl      tty_flap
+        b       tty_feed_done
+tty_feed_pause:
+        ldr     x0, =tty_pause
+        bl      tty_set
+        b       tty_feed_done
+tty_feed_quit:
+        str     xzr, [x9]
+        ldr     x0, =tty_quit
+        bl      tty_set
+        b       tty_feed_done
+tty_feed_debug:
+        ldr     x0, =tty_debug
+        bl      tty_set
+tty_feed_done:
+        ldp     fp, lr, [sp], 16
+        ret
+
+// tty_poll(x0 = tick): reads every waiting byte and decodes it; 0 and -EAGAIN both mean no key
+        .balign 4
+        .global tty_poll
+tty_poll:
+        stp     fp, lr, [sp, -48]!
+        mov     fp, sp
+        stp     x19, x20, [sp, 16]
+        stp     x21, x22, [sp, 32]
+        mov     tty_tick_r, x0
+        mov     tty_reads_r, 0
+tty_poll_read:
+        mov     x0, 0
+        ldr     x1, =tty_in
+        mov     x2, TTY_INBUF
+        mov     x8, SYS_READ
+        svc     0
+        cmp     x0, 0
+        b.le    tty_poll_esc
+        mov     tty_n_r, x0
+        mov     tty_i_r, 0
+tty_poll_byte:
+        ldr     x9, =tty_in
+        ldrb    w0, [x9, tty_i_r]
+        mov     x1, tty_tick_r
+        bl      tty_feed
+        add     tty_i_r, tty_i_r, 1
+        cmp     tty_i_r, tty_n_r
+        b.lt    tty_poll_byte
+        add     tty_reads_r, tty_reads_r, 1
+        cmp     tty_n_r, TTY_INBUF
+        b.ne    tty_poll_esc
+        cmp     tty_reads_r, TTY_MAXREADS
+        b.lt    tty_poll_read
+tty_poll_esc:
+        // a lone ESC with nothing after it for two ticks is the Esc key
+        ldr     x9, =tty_dstate
+        ldr     x10, [x9]
+        cmp     x10, TTY_ESC
+        b.ne    tty_poll_done
+        ldr     x11, =tty_desc
+        ldr     x11, [x11]
+        sub     x11, tty_tick_r, x11
+        cmp     x11, TTY_ESC_TICKS
+        b.lt    tty_poll_done
+        str     xzr, [x9]
+        ldr     x0, =tty_quit
+        bl      tty_set
+tty_poll_done:
+        ldp     x19, x20, [sp, 16]
+        ldp     x21, x22, [sp, 32]
+        ldp     fp, lr, [sp], 48
+        ret
+
+// tty_sleep(x0 = nanoseconds): nanosleep, split into seconds when needed
+        .balign 4
+        .global tty_sleep
+tty_sleep:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =tty_ts
+        ldr     x10, =1000000000
+        udiv    x11, x0, x10
+        msub    x12, x11, x10, x0
+        stp     x11, x12, [x9]
+        mov     x0, x9
+        mov     x1, 0
+        mov     x8, SYS_NANOSLEEP
+        svc     0
+        ldp     fp, lr, [sp], 16
+        ret
+
+// tty_write_all(w0 = fd, x1 = buf, x2 = len) -> w0 = 0 written, 1 cut short, 2 terminal gone
+        .balign 4
+        .global tty_write_all
+tty_write_all:
+        stp     fp, lr, [sp, -48]!
+        mov     fp, sp
+        stp     x19, x20, [sp, 16]
+        stp     x21, x22, [sp, 32]
+        mov     tty_fd_r, w0
+        mov     tty_buf_r, x1
+        mov     tty_len_r, x2
+        mov     tty_waits_r, 0
+        b       tty_wa_test
+tty_wa_loop:
+        mov     w0, tty_fd_r
+        mov     x1, tty_buf_r
+        mov     x2, tty_len_r
+        mov     x8, SYS_WRITE
+        svc     0
+        cmp     x0, 0
+        b.le    tty_wa_err
+        add     tty_buf_r, tty_buf_r, x0
+        sub     tty_len_r, tty_len_r, x0
+        b       tty_wa_test
+tty_wa_err:
+        cmn     x0, EINTR
+        b.eq    tty_wa_test
+        cmn     x0, EIO
+        b.eq    tty_wa_gone
+        cmn     x0, EAGAIN
+        b.ne    tty_wa_cut
+        // stdout shares the tty's file description, so O_NONBLOCK on stdin reaches it too
+        cmp     tty_waits_r, TTY_WAIT_MAX
+        b.ge    tty_wa_cut
+        add     tty_waits_r, tty_waits_r, 1
+        ldr     x0, =TTY_WAIT_NS
+        bl      tty_sleep
+tty_wa_test:
+        cbnz    tty_len_r, tty_wa_loop
+        mov     w0, 0
+        b       tty_wa_done
+tty_wa_cut:
+        mov     w0, 1
+        b       tty_wa_done
+tty_wa_gone:
+        mov     w0, 2
+tty_wa_done:
+        ldp     x19, x20, [sp, 16]
+        ldp     x21, x22, [sp, 32]
+        ldp     fp, lr, [sp], 48
+        ret
