@@ -162,14 +162,21 @@ if [ "$s3" = "screen 60x50 unpainted 0" ] && [ "$s1" = "screen 144x128 unpainted
   echo "PASS resize: $s3; $s1"
 else echo "FAIL resize: $s3; $s1"; bad=1; fi
 
-# too small: a message with the size it has and the size it needs; growing the window starts it
+# too small: a centred message with the size it has, the size it needs and how to get there, as
+# the terminal shows it; growing the window starts the game
 session small --size 30x20 --deadline 30 --resize 2.0:48x43 --key 4.0:71 -- --seed 3
 verify small 0 ""
 grown=$(at small 2.0)
+note=$(timeout 60 node "$here/screen.mjs" smoke-small.out 30 20 - "@$grown")
+want=$(printf '%s\n' '' '' '' '' '' '' '' '      terminal is 30x20' '     the game needs 36x32' \
+  '        to zoom out in' '      Windows Terminal,' '     press Ctrl and minus' \
+  '      or make it bigger' '' '' '' '' '' '' '')
 sm=$(timeout 60 node "$here/screen.mjs" smoke-small.out 30 20 smoke-small.ppm "$grown:48x43")
-if head -c "$grown" smoke-small.out | grep -qa "terminal 30x20 is too small, the game needs 36x32" \
-  && [ "$sm" = "screen 48x43 unpainted 0" ]; then echo "PASS small: message, then $sm"
-else echo "FAIL small: $sm"; bad=1; fi
+if [ "$note" = "$want" ] && [ "$sm" = "screen 48x43 unpainted 0" ]; then
+  echo "PASS small: centred notice, then $sm"
+else
+  echo "FAIL small: $sm; the screen at 30x20 was:"; printf '%s\n' "$note" | sed 's/^/  |/'; bad=1
+fi
 
 # a kill leaves no chance to restore; the next session must still start and quit cleanly
 timeout 60 python3 "$here/pty_run.py" --out smoke-kill.out --deadline 20 --kill 2.0 \
