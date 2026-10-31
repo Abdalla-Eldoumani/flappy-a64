@@ -10,7 +10,7 @@ define(term_stride_r, x24)
 define(term_crows_r, x25)
 define(term_bt_r, x26)
 define(term_ft_r, x27)
-define(term_k_r, x28)
+define(term_diff_r, x28)
 define(term_s_r, x19)
 define(term_c_r, x20)
 define(term_r_r, x21)
@@ -45,6 +45,12 @@ TERM_FINAL = 64
 TERM_FINAL_CUP = 72
 TERM_FINAL_CUF = 67
 TERM_FINAL_SGR = 109
+// the diff compares a block of eight cells as one 64-bit word; a cell's byte starts at a bit
+// index that is a multiple of eight, which TERM_BYTE_BITS rounds down to
+TERM_BLOCK = 8
+TERM_BYTE_BITS = 0x38
+TERM_BYTE_MASK = 0xFF
+// where the bench adds up each kind of byte in term_bsplit
 TERM_SPLIT_CURSOR = 0
 TERM_SPLIT_COLOUR = 8
 TERM_SPLIT_GLYPH = 16
@@ -1035,36 +1041,44 @@ term_pf_row:
 term_pf_cols:
         mov     term_col_r, 0
 term_pf_block:
-        cbz     term_ft_r, term_pf_walk
-        // eight cells at a time: both pixel rows unchanged means nothing to send
+        // a byte of the mask per cell, set where either pixel row changed; with no front
+        // buffer every cell is sent
+        mov     term_diff_r, TERM_UNKNOWN
+        cbz     term_ft_r, term_pf_edge
         ldr     x10, [term_bt_r, term_col_r]
         ldr     x11, [term_ft_r, term_col_r]
-        cmp     x10, x11
-        b.ne    term_pf_walk
+        eor     term_diff_r, x10, x11
         add     x12, term_bt_r, term_stride_r
         ldr     x10, [x12, term_col_r]
         add     x12, term_ft_r, term_stride_r
         ldr     x11, [x12, term_col_r]
-        cmp     x10, x11
-        b.eq    term_pf_bnext
-term_pf_walk:
-        mov     term_k_r, 0
+        eor     x10, x10, x11
+        orr     term_diff_r, term_diff_r, x10
+        cbz     term_diff_r, term_pf_bnext
+term_pf_edge:
+        // the last block can reach past the display's right edge into the row padding
+        sub     x9, term_dw_r, term_col_r
+        cmp     x9, TERM_BLOCK
+        b.ge    term_pf_some
+        lsl     x9, x9, 3
+        mov     x10, 1
+        lsl     x10, x10, x9
+        sub     x10, x10, 1
+        and     term_diff_r, term_diff_r, x10
+term_pf_some:
+        cbz     term_diff_r, term_pf_bnext
 term_pf_cell:
-        add     x9, term_col_r, term_k_r
-        cmp     x9, term_dw_r
-        b.ge    term_pf_bnext
+        // the lowest set byte is the next changed cell; clearing it moves on to the one after
+        rbit    x9, term_diff_r
+        clz     x9, x9
+        and     x9, x9, TERM_BYTE_BITS
+        mov     x10, TERM_BYTE_MASK
+        lsl     x10, x10, x9
+        bic     term_diff_r, term_diff_r, x10
+        add     x9, term_col_r, x9, lsr 3
         ldrb    w0, [term_bt_r, x9]
         add     x12, term_bt_r, term_stride_r
         ldrb    w1, [x12, x9]
-        cbz     term_ft_r, term_pf_send
-        ldrb    w13, [term_ft_r, x9]
-        add     x12, term_ft_r, term_stride_r
-        ldrb    w14, [x12, x9]
-        cmp     w0, w13
-        b.ne    term_pf_send
-        cmp     w1, w14
-        b.eq    term_pf_knext
-term_pf_send:
         ldr     x12, =term_oy
         ldr     x2, [x12]
         add     x2, x2, term_row_r
@@ -1073,12 +1087,9 @@ term_pf_send:
         add     x3, x3, x9
         bl      term_cell
         bl      term_breathe
-term_pf_knext:
-        add     term_k_r, term_k_r, 1
-        cmp     term_k_r, 8
-        b.lt    term_pf_cell
+        cbnz    term_diff_r, term_pf_cell
 term_pf_bnext:
-        add     term_col_r, term_col_r, 8
+        add     term_col_r, term_col_r, TERM_BLOCK
         cmp     term_col_r, term_dw_r
         b.lt    term_pf_block
         add     term_row_r, term_row_r, 1
