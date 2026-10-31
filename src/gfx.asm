@@ -11,14 +11,14 @@ define(gfx_x_r, x25)
 define(gfx_s_r, x26)
 define(gfx_k_r, x27)
 define(gfx_n_r, x28)
-define(gfx_fill_w, w26)
-define(gfx_edge_w, w19)
-define(gfx_out_w, w28)
+define(gfx_fill32_r, w26)
+define(gfx_edge32_r, w19)
+define(gfx_out32_r, w28)
 define(gfx_ang_r, x19)
 define(gfx_frm_r, x20)
 define(gfx_box_r, x24)
-define(gfx_w_w, w22)
-define(gfx_h_w, w23)
+define(gfx_w32_r, w22)
+define(gfx_h32_r, w23)
 define(gfx_txt_r, x19)
 define(gfx_gw_r, x20)
 define(gfx_gh_r, x21)
@@ -46,7 +46,7 @@ define(gfx_fb_r, x21)
 define(gfx_fc_r, x22)
 define(gfx_fd_r, x23)
 define(gfx_fe_r, x24)
-define(gfx_fd_w, w23)
+define(gfx_fd32_r, w23)
 
 GFX_DIV_OFF = 512
 GFX_DIV_LO = -512
@@ -444,8 +444,8 @@ gfx_outline:
         mov     gfx_w_r, x1
         mov     gfx_h_r, x2
         mov     gfx_dst_r, x3
-        mov     gfx_fill_w, w4
-        mov     gfx_edge_w, w5
+        mov     gfx_fill32_r, w4
+        mov     gfx_edge32_r, w5
         mov     gfx_y_r, 0
 gfx_outline_row:
         mov     gfx_x_r, 0
@@ -457,9 +457,9 @@ gfx_outline_px:
         sub     x3, gfx_x_r, 1
         sub     x4, gfx_y_r, 1
         bl      gfx_on
-        mov     gfx_out_w, gfx_fill_w
+        mov     gfx_out32_r, gfx_fill32_r
         cbnz    x0, gfx_outline_put
-        mov     gfx_out_w, gfx_edge_w
+        mov     gfx_out32_r, gfx_edge32_r
         mov     gfx_k_r, 0
 gfx_outline_near:
         mov     x0, gfx_src_r
@@ -477,9 +477,9 @@ gfx_outline_near:
         add     gfx_k_r, gfx_k_r, 1
         cmp     gfx_k_r, 9
         b.lt    gfx_outline_near
-        mov     gfx_out_w, GFX_CLEAR
+        mov     gfx_out32_r, GFX_CLEAR
 gfx_outline_put:
-        strb    gfx_out_w, [gfx_dst_r], 1
+        strb    gfx_out32_r, [gfx_dst_r], 1
         add     gfx_x_r, gfx_x_r, 1
         add     x9, gfx_w_r, 2
         cmp     gfx_x_r, x9
@@ -554,8 +554,8 @@ gfx_bake_bird:
         ldr     x9, [x9]
         ldr     x10, =gfx_birdwh
         add     x10, x10, x9, lsl 2
-        ldrh    gfx_w_w, [x10]
-        ldrh    gfx_h_w, [x10, 2]
+        ldrh    gfx_w32_r, [x10]
+        ldrh    gfx_h32_r, [x10, 2]
         ldr     x0, =art_bird1
         cmp     x9, 2
         b.lt    gfx_bake_text
@@ -1225,7 +1225,7 @@ gfx_frame_bird:
         csel    gfx_fc_r, x12, x13, le
         ldr     x13, [x9, SIM_WING]
         ldr     x14, =sim_wingframe
-        ldrb    gfx_fd_w, [x14, x13]
+        ldrb    gfx_fd32_r, [x14, x13]
         asr     gfx_fb_r, x11, 8
         mov     x0, gfx_fa_r
         bl      gfx_d
