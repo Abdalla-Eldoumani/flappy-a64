@@ -592,7 +592,8 @@ gfx_bake_bird:
 gfx_bake_text:
         ldr     x1, =art_l_bird
         mul     x2, gfx_w_r, gfx_h_r
-        add     x2, x2, x2, lsl 1
+        mov     x9, ART_FRAMES
+        mul     x2, x2, x9
         ldr     x3, =gfx_sprite
         bl      art_decode
         mov     x0, GFX_BOX
@@ -1267,7 +1268,8 @@ gfx_frame_bird:
         ldr     x9, =gfx_box
         ldr     x2, [x9]
         mul     x10, x2, x2
-        add     x11, gfx_fc_r, gfx_fc_r, lsl 1
+        mov     x11, ART_FRAMES
+        mul     x11, gfx_fc_r, x11
         add     x11, x11, gfx_fd_r
         ldr     x1, =gfx_rot
         madd    x1, x11, x10, x1
