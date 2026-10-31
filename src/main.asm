@@ -257,10 +257,11 @@ main_clock:
         ret
 
 // main_exit(w0 = status): leaves raw mode and ends the process; never returns
+main_exit_alloc = -(16 + 8) & -16
         .balign 4
         .global main_exit
 main_exit:
-        stp     fp, lr, [sp, -32]!
+        stp     fp, lr, [sp, main_exit_alloc]!
         mov     fp, sp
         str     main_arg_r, [sp, 16]
         mov     main_arg_r, x0
@@ -270,9 +271,10 @@ main_exit:
         svc     0
 
 // main_badarg(x0 = argument): reports it on stderr and exits with status 2
+main_badarg_alloc = -(16 + 8) & -16
         .balign 4
 main_badarg:
-        stp     fp, lr, [sp, -32]!
+        stp     fp, lr, [sp, main_badarg_alloc]!
         mov     fp, sp
         str     main_arg_r, [sp, 16]
         mov     main_arg_r, x0
@@ -334,9 +336,11 @@ main_list_done:
         ret
 
 // main_value(x0 = string) -> x0 = the whole string as a number; anything else exits
+main_value_alloc = -(16 + 8) & -16
+main_value_dealloc = 0 - main_value_alloc
         .balign 4
 main_value:
-        stp     fp, lr, [sp, -32]!
+        stp     fp, lr, [sp, main_value_alloc]!
         mov     fp, sp
         str     main_arg_r, [sp, 16]
         mov     main_arg_r, x0
@@ -345,17 +349,19 @@ main_value:
         ldrb    w9, [x1]
         cbnz    w9, main_value_bad
         ldr     main_arg_r, [sp, 16]
-        ldp     fp, lr, [sp], 32
+        ldp     fp, lr, [sp], main_value_dealloc
         ret
 main_value_bad:
         mov     x0, main_arg_r
         bl      main_badarg
 
-main_parse_value = 32
 // main_parse(): reads every argument into the main_ settings
+main_parse_alloc = -(16 + 16 + 8) & -16
+main_parse_dealloc = 0 - main_parse_alloc
+main_parse_value = 32
         .balign 4
 main_parse:
-        stp     fp, lr, [sp, -48]!
+        stp     fp, lr, [sp, main_parse_alloc]!
         mov     fp, sp
         stp     x21, x28, [sp, 16]
         mov     main_i_r, 1
@@ -498,7 +504,7 @@ main_parse_test:
         cmp     main_i_r, main_argc_r
         b.lt    main_parse_loop
         ldp     x21, x28, [sp, 16]
-        ldp     fp, lr, [sp], 48
+        ldp     fp, lr, [sp], main_parse_dealloc
         ret
 
 // main_seed_sim(): seeds the game from --seed or from getrandom
@@ -521,11 +527,13 @@ main_seed_have:
         ldp     fp, lr, [sp], 16
         ret
 
-main_press_tick = 24
 // main_press(x0 = tick) -> w0 = 1 when the autopilot or the flap list presses on this tick
+main_press_alloc = -(16 + 8 + 8) & -16
+main_press_dealloc = 0 - main_press_alloc
+main_press_tick = 24
         .balign 4
 main_press:
-        stp     fp, lr, [sp, -32]!
+        stp     fp, lr, [sp, main_press_alloc]!
         mov     fp, sp
         str     main_arg_r, [sp, 16]
         str     x0, [sp, main_press_tick]
@@ -557,14 +565,16 @@ main_press_done:
         str     x10, [x9]
         mov     x0, main_arg_r
         ldr     main_arg_r, [sp, 16]
-        ldp     fp, lr, [sp], 32
+        ldp     fp, lr, [sp], main_press_dealloc
         ret
 
-main_line_end = 24
 // main_status(x0 = tick): one headless line, "t score y vy state hash"
+main_status_alloc = -(16 + 8 + 8) & -16
+main_status_dealloc = 0 - main_status_alloc
+main_status_end = 24
         .balign 4
 main_status:
-        stp     fp, lr, [sp, -32]!
+        stp     fp, lr, [sp, main_status_alloc]!
         mov     fp, sp
         str     main_sim_r, [sp, 16]
         ldr     x1, =main_line
@@ -592,9 +602,9 @@ main_status:
         bl      main_fmt_dec
         mov     w9, 32
         strb    w9, [x0], 1
-        str     x0, [sp, main_line_end]
+        str     x0, [sp, main_status_end]
         bl      sim_hash
-        ldr     x1, [sp, main_line_end]
+        ldr     x1, [sp, main_status_end]
         bl      main_fmt_hex
         mov     w9, 10
         strb    w9, [x0], 1
@@ -603,7 +613,7 @@ main_status:
         ldr     x1, =main_line
         bl      main_write
         ldr     main_sim_r, [sp, 16]
-        ldp     fp, lr, [sp], 32
+        ldp     fp, lr, [sp], main_status_dealloc
         ret
 
 // main_headless(): the simulation alone, no terminal and no art
@@ -667,9 +677,11 @@ main_hl_test:
         ret
 
 // main_dump(x0 = tick): writes the composed frame as dir/tick.ppm when the list asks for it
+main_dump_alloc = -(16 + 8) & -16
+main_dump_dealloc = 0 - main_dump_alloc
         .balign 4
 main_dump:
-        stp     fp, lr, [sp, -32]!
+        stp     fp, lr, [sp, main_dump_alloc]!
         mov     fp, sp
         str     main_arg_r, [sp, 16]
         mov     main_arg_r, x0
@@ -716,13 +728,15 @@ main_dump_name:
         bl      save_ppm
 main_dump_done:
         ldr     main_arg_r, [sp, 16]
-        ldp     fp, lr, [sp], 32
+        ldp     fp, lr, [sp], main_dump_dealloc
         ret
 
 // main_draw(x0 = tick): compose, present, dump if asked, then swap the display buffers
+main_draw_alloc = -(16 + 8) & -16
+main_draw_dealloc = 0 - main_draw_alloc
         .balign 4
 main_draw:
-        stp     fp, lr, [sp, -32]!
+        stp     fp, lr, [sp, main_draw_alloc]!
         mov     fp, sp
         str     main_arg_r, [sp, 16]
         mov     main_arg_r, x0
@@ -751,7 +765,7 @@ main_draw:
         str     x12, [x9]
         str     x10, [x11]
         ldr     main_arg_r, [sp, 16]
-        ldp     fp, lr, [sp], 32
+        ldp     fp, lr, [sp], main_draw_dealloc
         ret
 
 // main_buffers(): the two display buffers and a first-frame palette upload
@@ -772,9 +786,11 @@ main_buffers:
         ret
 
 // main_render(): the full game with rendering into stdout, no terminal and no sleeping
+main_render_alloc = -(16 + 16) & -16
+main_render_dealloc = 0 - main_render_alloc
         .balign 4
 main_render:
-        stp     fp, lr, [sp, -32]!
+        stp     fp, lr, [sp, main_render_alloc]!
         mov     fp, sp
         stp     x22, x28, [sp, 16]
         mov     x0, AT_FDCWD
@@ -835,7 +851,7 @@ main_render_test:
         mov     x8, SYS_CLOSE
         svc     0
         ldp     x22, x28, [sp, 16]
-        ldp     fp, lr, [sp], 32
+        ldp     fp, lr, [sp], main_render_dealloc
         ret
 main_render_small:
         mov     w0, 2
@@ -917,9 +933,11 @@ main_stats_line:
         ret
 
 // main_play(): the interactive game, paced to 60 ticks a second by deadline
+main_play_alloc = -(16 + 64) & -16
+main_play_dealloc = 0 - main_play_alloc
         .balign 4
 main_play:
-        stp     fp, lr, [sp, -80]!
+        stp     fp, lr, [sp, main_play_alloc]!
         mov     fp, sp
         stp     x21, x22, [sp, 16]
         stp     x23, x24, [sp, 32]
@@ -1078,14 +1096,15 @@ main_play_done:
         ldp     x23, x24, [sp, 32]
         ldp     x25, x26, [sp, 48]
         ldp     x27, x28, [sp, 64]
-        ldp     fp, lr, [sp], 80
+        ldp     fp, lr, [sp], main_play_dealloc
         ret
 
 // main(w0 = argc, x1 = argv) -> w0 = exit status
+main_alloc = -(16 + 16) & -16
         .balign 4
         .global main
 main:
-        stp     fp, lr, [sp, -32]!
+        stp     fp, lr, [sp, main_alloc]!
         mov     fp, sp
         stp     x19, x20, [sp, 16]
         sxtw    main_argc_r, w0
