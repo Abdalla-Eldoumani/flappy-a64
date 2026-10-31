@@ -10,7 +10,8 @@
     --read-delay MS     pause between reads of at most --read-size bytes (slow terminal)
     --read-size N       bytes per read (default 65536)
     --out FILE          where the capture goes (default pty.out)
-  Prints "status N" (the exit status, or -signal) and "bytes N".
+  Prints "key T N" or "resize T N" for each event (N = bytes captured when it fired),
+  then "status N" (the exit status, or -signal) and "bytes N".
 """
 import os, pty, sys, time, select, struct, fcntl, termios, signal
 
@@ -58,10 +59,12 @@ def main():
         os.execvp(o["cmd"][0], o["cmd"])
     start = time.monotonic()
     cap, status, events, killed = bytearray(), None, list(o["events"]), False
+    fired = []
     while True:
         now = time.monotonic() - start
         while events and events[0][0] <= now:
-            _, kind, v = events.pop(0)
+            t, kind, v = events.pop(0)
+            fired.append(f"{kind} {t} {len(cap)}")
             if kind == "key":
                 os.write(fd, v)
             else:
@@ -92,6 +95,8 @@ def main():
         status = os.waitstatus_to_exitcode(st)
     with open(o["out"], "wb") as f:
         f.write(cap)
+    for line in fired:
+        print(line)
     print("status", status)
     print("bytes", len(cap))
 
