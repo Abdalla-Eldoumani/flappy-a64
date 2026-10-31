@@ -4,22 +4,24 @@
 // Byte budget, from size -A on each object (each section must stay under 1 MiB)
 //   .bss    main  display buffers 2 x 36864                     73728
 //                 flap list 4096 x 4, dump list 1024 x 4        20480
-//                 line, path, settings                            992
+//                 line, path, settings, debug text               1104
 //           gfx   logical scratch 240 x 256                     61440
 //                 static background                             36864
 //                 rotated bird, 69 boxes of 24 x 24             39744
 //                 ground strip 240 x 56                         13440
-//                 division table, sprites, digits, geometry      4808
+//                 UI words baked for the scale                  16384
+//                 text bitmap, debug overlay                     8704
+//                 division table, sprites, digits, tables        6360
 //           term  output buffer                                131072
 //                 colour strings 2 x 64 x 24, decimals, state    7248
 //           art   palette, legend map                             392
 //           sim   state 26 x 8, masks 36 x 4                      352
-//           tty   termios x 2, input buffer, decoder              296
-//           save  ppm row buffer, header                          576
-//                 total                                        391432
-//   .rodata art   palettes, legends, trig, sprite text           7744
-//           rest  messages and tables                             568
-//                 total                                          8312
+//           tty   termios x 2, input buffer, decoder              304
+//           save  ppm row buffer, header, best score              592
+//                 total                                        418208
+//   .rodata art   palettes, sprites, fonts, UI words             8744
+//           rest  messages and tables                             750
+//                 total                                          9494
 
 define(fp, x29)
 define(lr, x30)
