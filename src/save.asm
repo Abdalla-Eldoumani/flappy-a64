@@ -134,7 +134,7 @@ save_best_load:
         mov     x3, 0
         mov     x8, SYS_OPENAT
         svc     0
-        tbnz    x0, 63, save_load_none
+        tbnz    x0, 63, save_best_load_none
         mov     x9, x0
         ldr     x1, =save_hdr
         mov     x2, SAVE_BEST_READ
@@ -146,47 +146,47 @@ save_best_load:
         svc     0
         // digits, then at most a line end; anything else means the file is not ours to trust
         cmp     x10, 0
-        b.le    save_load_none
+        b.le    save_best_load_none
         ldr     x11, =save_hdr
         mov     x12, 0
         mov     x0, 0
         mov     x13, 10
-save_load_digit:
+save_best_load_digit:
         ldrb    w14, [x11, x12]
         sub     w15, w14, ART_CHAR_0
         cmp     w15, ART_DIGIT_LAST
-        b.hi    save_load_end
+        b.hi    save_best_load_end
         madd    x0, x0, x13, x15
         ldr     x15, =SAVE_BEST_MAX
         cmp     x0, x15
         csel    x0, x0, x15, le
         add     x12, x12, 1
         cmp     x12, x10
-        b.lt    save_load_digit
-        b       save_load_check
-save_load_end:
+        b.lt    save_best_load_digit
+        b       save_best_load_check
+save_best_load_end:
         cmp     w14, SAVE_LF
-        b.eq    save_load_check
+        b.eq    save_best_load_check
         cmp     w14, SAVE_CR
-        b.ne    save_load_none
-save_load_check:
-        cbnz    x12, save_load_done
-save_load_none:
+        b.ne    save_best_load_none
+save_best_load_check:
+        cbnz    x12, save_best_load_done
+save_best_load_none:
         mov     x0, 0
-save_load_done:
+save_best_load_done:
         ldr     x9, =save_best
         str     x0, [x9]
         ldp     fp, lr, [sp], 16
         ret
 
 // save_best_check(x0 = score): a new best is kept, flagged in save_new and written out
-save_check_alloc = -(16 + 8 + 8) & -16
-save_check_dealloc = 0 - save_check_alloc
-save_check_fd = 24
+save_best_check_alloc = -(16 + 8 + 8) & -16
+save_best_check_dealloc = 0 - save_best_check_alloc
+save_best_check_fd = 24
         .balign 4
         .global save_best_check
 save_best_check:
-        stp     fp, lr, [sp, save_check_alloc]!
+        stp     fp, lr, [sp, save_best_check_alloc]!
         mov     fp, sp
         str     save_score_r, [sp, 16]
         ldr     x9, =SAVE_BEST_MAX
@@ -197,7 +197,7 @@ save_best_check:
         ldr     x10, =save_best
         ldr     x11, [x10]
         cmp     save_score_r, x11
-        b.le    save_check_done
+        b.le    save_best_check_done
         str     save_score_r, [x10]
         mov     x11, 1
         str     x11, [x9]
@@ -208,8 +208,8 @@ save_best_check:
         mov     x3, SAVE_MODE
         mov     x8, SYS_OPENAT
         svc     0
-        tbnz    x0, 63, save_check_done
-        str     x0, [sp, save_check_fd]
+        tbnz    x0, 63, save_best_check_done
+        str     x0, [sp, save_best_check_fd]
         mov     x0, save_score_r
         ldr     x1, =save_hdr
         bl      main_fmt_dec
@@ -217,12 +217,12 @@ save_best_check:
         strb    w9, [x0], 1
         ldr     x1, =save_hdr
         sub     x2, x0, x1
-        ldr     x0, [sp, save_check_fd]
+        ldr     x0, [sp, save_best_check_fd]
         bl      tty_write_all
-        ldr     x0, [sp, save_check_fd]
+        ldr     x0, [sp, save_best_check_fd]
         mov     x8, SYS_CLOSE
         svc     0
-save_check_done:
+save_best_check_done:
         ldr     save_score_r, [sp, 16]
-        ldp     fp, lr, [sp], save_check_dealloc
+        ldp     fp, lr, [sp], save_best_check_dealloc
         ret
