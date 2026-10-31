@@ -11,6 +11,15 @@ define(gfx_d_r, x25)
 define(gfx_bits_r, x26)
 define(gfx_row_r, x27)
 define(gfx_col_r, x28)
+define(gfx_sc_r, x19)
+define(gfx_rs_r, x20)
+define(gfx_ry_r, x21)
+define(gfx_y0_r, x20)
+define(gfx_x1_r, x21)
+define(gfx_y1_r, x22)
+define(gfx_slot_r, x23)
+define(gfx_x0_r, x24)
+define(gfx_slot_w, w23)
 
 GFX_DIV_OFF = 512
 GFX_DIV_LO = -512
@@ -96,11 +105,11 @@ gfx_setup:
         stp     x19, x20, [sp, 16]
         stp     x21, x22, [sp, 32]
         stp     x23, x24, [sp, 48]
-        uxtw    x19, w0
+        uxtw    gfx_sc_r, w0
         ldr     x9, =gfx_scale
-        str     x19, [x9]
+        str     gfx_sc_r, [x9]
         ldr     x9, =gfx_geo
-        add     x9, x9, x19, lsl 3
+        add     x9, x9, gfx_sc_r, lsl 3
         ldrh    w10, [x9]
         ldrh    w11, [x9, 2]
         ldrh    w12, [x9, 4]
@@ -115,8 +124,8 @@ gfx_setup:
         mov     x10, 0
 gfx_setup_div:
         sub     x11, x10, GFX_DIV_OFF
-        sdiv    x12, x11, x19
-        mul     x13, x12, x19
+        sdiv    x12, x11, gfx_sc_r
+        mul     x13, x12, gfx_sc_r
         cmp     x13, x11
         b.le    gfx_setup_dstore
         sub     x12, x12, 1
@@ -125,16 +134,15 @@ gfx_setup_dstore:
         add     x10, x10, 1
         cmp     x10, 1024
         b.lt    gfx_setup_div
-        // background rows: sky bands above the ground line, ground below
         ldr     gfx_p_r, =gfx_bg
         ldr     x9, =gfx_dh
         ldr     gfx_n_r, [x9]
         ldr     x9, =gfx_stride
-        ldr     x20, [x9]
-        mov     x21, 0
+        ldr     gfx_rs_r, [x9]
+        mov     gfx_ry_r, 0
         b       gfx_setup_rtest
 gfx_setup_row:
-        mul     x9, x21, x19
+        mul     x9, gfx_ry_r, gfx_sc_r
         mov     w10, SLOT_SKY
         cmp     x9, GFX_SKY_SPLIT
         b.lt    gfx_setup_fill
@@ -143,15 +151,16 @@ gfx_setup_row:
         b.lt    gfx_setup_fill
         mov     w10, SLOT_GROUND
 gfx_setup_fill:
+        // a row fill runs once per scale change; sixteen bytes a store keeps it short in steps
         dup     v0.16b, w10
-        mov     x11, x20
+        mov     x11, gfx_rs_r
 gfx_setup_put:
         st1     {v0.16b}, [gfx_p_r], 16
         subs    x11, x11, 16
         b.gt    gfx_setup_put
-        add     x21, x21, 1
+        add     gfx_ry_r, gfx_ry_r, 1
 gfx_setup_rtest:
-        cmp     x21, gfx_n_r
+        cmp     gfx_ry_r, gfx_n_r
         b.lt    gfx_setup_row
         ldp     x19, x20, [sp, 16]
         ldp     x21, x22, [sp, 32]
@@ -167,51 +176,51 @@ gfx_rect:
         stp     x19, x20, [sp, 16]
         stp     x21, x22, [sp, 32]
         stp     x23, x24, [sp, 48]
-        mov     x19, x0
-        mov     x20, x2
-        mov     x21, x3
-        mov     x22, x4
-        mov     w23, w5
+        mov     gfx_buf_r, x0
+        mov     gfx_y0_r, x2
+        mov     gfx_x1_r, x3
+        mov     gfx_y1_r, x4
+        mov     gfx_slot_w, w5
         mov     x0, x1
         bl      gfx_d
-        mov     x24, x0
-        mov     x0, x20
+        mov     gfx_x0_r, x0
+        mov     x0, gfx_y0_r
         bl      gfx_d
-        mov     x20, x0
-        mov     x0, x21
+        mov     gfx_y0_r, x0
+        mov     x0, gfx_x1_r
         bl      gfx_d
-        mov     x21, x0
-        mov     x0, x22
+        mov     gfx_x1_r, x0
+        mov     x0, gfx_y1_r
         bl      gfx_d
-        mov     x22, x0
-        cmp     x24, 0
-        csel    x24, x24, xzr, ge
-        cmp     x20, 0
-        csel    x20, x20, xzr, ge
+        mov     gfx_y1_r, x0
+        cmp     gfx_x0_r, 0
+        csel    gfx_x0_r, gfx_x0_r, xzr, ge
+        cmp     gfx_y0_r, 0
+        csel    gfx_y0_r, gfx_y0_r, xzr, ge
         ldr     x9, =gfx_dw
         ldr     x9, [x9]
-        cmp     x21, x9
-        csel    x21, x21, x9, le
+        cmp     gfx_x1_r, x9
+        csel    gfx_x1_r, gfx_x1_r, x9, le
         ldr     x9, =gfx_dh
         ldr     x9, [x9]
-        cmp     x22, x9
-        csel    x22, x22, x9, le
-        cmp     x24, x21
+        cmp     gfx_y1_r, x9
+        csel    gfx_y1_r, gfx_y1_r, x9, le
+        cmp     gfx_x0_r, gfx_x1_r
         b.ge    gfx_rect_done
-        cmp     x20, x22
+        cmp     gfx_y0_r, gfx_y1_r
         b.ge    gfx_rect_done
         ldr     x9, =gfx_stride
         ldr     x9, [x9]
 gfx_rect_row:
-        madd    x10, x20, x9, x19
-        add     x10, x10, x24
-        sub     x11, x21, x24
+        madd    x10, gfx_y0_r, x9, gfx_buf_r
+        add     x10, x10, gfx_x0_r
+        sub     x11, gfx_x1_r, gfx_x0_r
 gfx_rect_px:
-        strb    w23, [x10], 1
+        strb    gfx_slot_w, [x10], 1
         subs    x11, x11, 1
         b.ne    gfx_rect_px
-        add     x20, x20, 1
-        cmp     x20, x22
+        add     gfx_y0_r, gfx_y0_r, 1
+        cmp     gfx_y0_r, gfx_y1_r
         b.lt    gfx_rect_row
 gfx_rect_done:
         ldp     x19, x20, [sp, 16]
@@ -324,7 +333,6 @@ gfx_frame:
         and     x2, x2, -64
         ldr     x1, =gfx_bg
         bl      gfx_copy
-        // pipes: body, cap above the gap, cap below it, body down to the ground
         mov     gfx_i_r, 0
 gfx_frame_pipe:
         ldr     x9, =sim_s
@@ -369,7 +377,7 @@ gfx_frame_pnext:
         add     gfx_i_r, gfx_i_r, 1
         cmp     gfx_i_r, SIM_PIPES
         b.lt    gfx_frame_pipe
-        // ground: grass line, then stripes that scroll with the pipes
+        // stripes on the grass are what show the ground scrolling
         mov     x0, gfx_buf_r
         mov     x1, 0
         mov     x2, GROUND_Y
