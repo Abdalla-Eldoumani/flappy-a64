@@ -118,13 +118,6 @@ ART_BIRD3_W = 6
 ART_BIRD3_H = 4
 ART_BIRD4_W = 5
 ART_BIRD4_H = 3
-// the bird drawn again at scales 2 to 4, where shrinking would lose it
-ART_BIRD2_W = 9
-ART_BIRD2_H = 6
-ART_BIRD3_W = 6
-ART_BIRD3_H = 4
-ART_BIRD4_W = 5
-ART_BIRD4_H = 3
 // glyph text: w x h characters plus a slash between rows
 ART_BIG_W = 6
 ART_BIG_H = 10
