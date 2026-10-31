@@ -16,7 +16,7 @@ RUN := qemu-aarch64
 endif
 CFLAGS := -Wa,--fatal-warnings
 
-.PHONY: all bundle m4gate goldens physics bundlecheck encoder playground envelope smoke best frames test play clean
+.PHONY: all bundle m4gate goldens physics bundlecheck encoder playground envelope smoke best harden soak frames test play clean
 
 all: build/flappy
 
@@ -74,11 +74,19 @@ smoke: build/flappy tests/node_modules
 best: build/flappy
 	cd build && bash ../tests/best.sh $(RUN)
 
+# a slow, stalled and closed terminal, a closed pipe, no terminal, extreme sizes, no best file
+harden: build/flappy tests/node_modules
+	cd build && bash ../tests/harden.sh $(RUN)
+
+# long: ten minutes of autopilot at s = 1 on a pseudo-terminal
+soak: build/flappy
+	cd build && bash ../tests/soak.sh $(RUN)
+
 # named moments as PNGs and one contact sheet, build/frames/sheet.png
 frames: build/flappy
 	cd build && bash ../tests/frames.sh $(RUN)
 
-test: m4gate goldens physics bundlecheck encoder playground smoke best
+test: m4gate goldens physics bundlecheck encoder playground smoke best harden
 
 play: build/flappy
 	cd build && $(RUN) ./flappy
