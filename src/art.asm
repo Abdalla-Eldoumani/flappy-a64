@@ -1,8 +1,8 @@
 // art_: palettes and, later, the sprites. For now one placeholder palette of flat colours.
 
         .section .rodata
-        .balign 4
 // slot -> R, G, B, pad
+        .balign 4
         .global art_palette
 art_palette:
         .byte   18, 22, 30, 0
