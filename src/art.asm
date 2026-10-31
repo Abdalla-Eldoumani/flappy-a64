@@ -446,13 +446,13 @@ art_decode_clear:
         add     x10, x10, 8
         cmp     x10, ART_MAP_BYTES
         b.lt    art_decode_clear
+        b       art_decode_ltest
 art_decode_legend:
-        ldrb    w10, [x1], 1
-        cbz     w10, art_decode_px
         ldrb    w11, [x1], 1
         strb    w11, [x9, x10]
-        b       art_decode_legend
-art_decode_px:
+art_decode_ltest:
+        ldrb    w10, [x1], 1
+        cbnz    w10, art_decode_legend
         cbz     x2, art_decode_done
 art_decode_loop:
         ldrb    w10, [x0], 1
