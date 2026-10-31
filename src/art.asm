@@ -412,7 +412,6 @@ art_prio:
         .byte   9, 6, 4, 6, 9, 7, 7, 7, 7, 8, 8, 8, 8, 7, 9, 5
         .byte   5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
         .byte   5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
-        .balign 2
 // sin and cos in Q14 for tilts of +20 down to -90 degrees in 5 degree steps
         .balign 4
         .global art_trig
