@@ -6,10 +6,12 @@ ART_PAL_BYTES = SLOT_COUNT * 4
 ART_NIGHT_BYTES = SLOT_PDARK * 4
 ART_BIRD_OFF = SLOT_BODY * 4
 ART_BIRD_BYTES = (SLOT_WING - SLOT_BODY + 1) * 4
+ART_MEDAL_OFF = SLOT_MED1 * 4
+ART_MEDAL_BYTES = (SLOT_MED3 - SLOT_MED1 + 1) * 4
 ART_LETTERS = 26
 ART_LETTER_LAST = ART_LETTERS - 1
 ART_SYMBOL0 = ART_DIGIT0 + 10
-ART_PAL_SPARE = (SLOT_COUNT - SLOT_NEW - 1) * 4
+ART_PAL_SPARE = (SLOT_COUNT - SLOT_MED3 - 1) * 4
 // one legend entry per 7-bit character code
 ART_MAP_BYTES = 128
 ART_CODE_MASK = ART_MAP_BYTES - 1
@@ -58,6 +60,9 @@ art_day:
         .byte   226, 98, 58, 0
         .byte   252, 168, 48, 0
         .byte   222, 50, 44, 0
+        .byte   240, 182, 120, 0
+        .byte   200, 124, 66, 0
+        .byte   132, 78, 40, 0
         .skip   ART_PAL_SPARE
 // night replaces the scenery slots, 1 to 19; the bird and text keep the day colours
 art_night:
@@ -85,6 +90,12 @@ art_birds:
         .byte   250, 204, 46, 0, 226, 150, 34, 0, 255, 236, 168, 0, 255, 248, 222, 0
         .byte   242, 110, 82, 0, 204, 74, 58, 0, 255, 214, 190, 0, 255, 240, 230, 0
         .byte   164, 124, 236, 0, 122, 88, 196, 0, 226, 212, 255, 0, 246, 240, 255, 0
+// medal colours, light, mid and dark: bronze, silver, gold, platinum
+art_medals:
+        .byte   240, 182, 120, 0, 200, 124, 66, 0, 132, 78, 40, 0
+        .byte   246, 246, 250, 0, 196, 202, 214, 0, 128, 134, 150, 0
+        .byte   255, 236, 128, 0, 242, 186, 40, 0, 178, 122, 18, 0
+        .byte   236, 252, 255, 0, 170, 224, 240, 0, 98, 156, 186, 0
 
 // the bird at scale 1: three wing frames of 17 x 12
         .balign 4
@@ -622,14 +633,16 @@ art_decode_done:
         ldp     fp, lr, [sp], 16
         ret
 
-// art_build(x0 = theme, x1 = bird colour) -> w0 = 1 when art_pal changed
+// art_build(x0 = theme, x1 = bird colour, x2 = medal 1 to 4 or 0) -> w0 = 1 when art_pal changed
         .balign 4
         .global art_build
 art_build:
         stp     fp, lr, [sp, -16]!
         mov     fp, sp
         // one key per look and never 0, so the first call always builds
-        lsl     x9, x0, 2
+        lsl     x9, x2, 2
+        add     x9, x9, x0
+        lsl     x9, x9, 2
         add     x9, x9, x1
         add     x9, x9, 1
         ldr     x10, =art_key
@@ -670,6 +683,20 @@ art_build_colour:
         add     x14, x14, 4
         cmp     x14, ART_BIRD_BYTES
         b.lt    art_build_colour
+        cbz     x2, art_build_changed
+        ldr     x13, =art_medals
+        sub     x9, x2, 1
+        mov     x10, ART_MEDAL_BYTES
+        madd    x13, x9, x10, x13
+        add     x15, x12, ART_MEDAL_OFF
+        mov     x14, 0
+art_build_medal:
+        ldr     w9, [x13, x14]
+        str     w9, [x15, x14]
+        add     x14, x14, 4
+        cmp     x14, ART_MEDAL_BYTES
+        b.lt    art_build_medal
+art_build_changed:
         mov     w12, 1
 art_build_done:
         mov     w0, w12
