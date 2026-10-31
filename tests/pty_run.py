@@ -7,11 +7,14 @@
     --key T:HEX         send bytes (hex) at T seconds; repeatable
     --resize T:CxR      change the window size at T seconds; repeatable
     --kill T            send SIGTERM to the child at T seconds
+    --close T           close the master at T seconds, as closing the window does, then wait
+                        for the child until the deadline
+    --stall T:S         read nothing for S seconds from T; repeatable
     --read-delay MS     pause between reads of at most --read-size bytes (slow terminal)
     --read-size N       bytes per read (default 65536)
     --out FILE          where the capture goes (default pty.out)
-  Prints "key T N" or "resize T N" for each event (N = bytes captured when it fired),
-  then "status N" (the exit status, or -signal) and "bytes N".
+  Prints "key T N", "resize T N" or "close T N" for each event (N = bytes captured when it
+  fired), then "status N" (the exit status, or -signal) and "bytes N".
 """
 import os, pty, sys, time, select, struct, fcntl, termios, signal
 
@@ -21,8 +24,8 @@ def winsize(fd, cols, rows):
 
 
 def parse(argv):
-    o = {"size": (144, 128), "deadline": 20.0, "events": [], "kill": None,
-         "delay": 0.0, "rsize": 65536, "out": "pty.out"}
+    o = {"size": (144, 128), "deadline": 20.0, "events": [], "kill": None, "close": None,
+         "stalls": [], "delay": 0.0, "rsize": 65536, "out": "pty.out"}
     i = 0
     while i < len(argv) and argv[i] != "--":
         a, v = argv[i], argv[i + 1] if i + 1 < len(argv) else ""
@@ -37,6 +40,10 @@ def parse(argv):
             o["events"].append((float(t), "resize", (int(c), int(r))))
         elif a == "--kill":
             o["kill"] = float(v)
+        elif a == "--close":
+            o["close"] = float(v)
+        elif a == "--stall":
+            t, d = v.split(":"); o["stalls"].append((float(t), float(d)))
         elif a == "--read-delay":
             o["delay"] = float(v) / 1000
         elif a == "--read-size":
@@ -71,12 +78,27 @@ def main():
                 winsize(fd, *v)
         if o["kill"] is not None and not killed and now >= o["kill"]:
             os.kill(pid, signal.SIGTERM); killed = True
+        if o["close"] is not None and now >= o["close"]:
+            os.close(fd)
+            fired.append(f"close {o['close']} {len(cap)}")
+            while status is None and time.monotonic() - start < o["deadline"]:
+                p, st = os.waitpid(pid, os.WNOHANG)
+                if p:
+                    status = os.waitstatus_to_exitcode(st)
+                else:
+                    time.sleep(0.01)
+            if status is None:
+                os.kill(pid, signal.SIGKILL)
+            break
         if now >= o["deadline"]:
             os.kill(pid, signal.SIGKILL)
         if status is None:
             p, st = os.waitpid(pid, os.WNOHANG)
             if p:
                 status = os.waitstatus_to_exitcode(st)
+        if any(a <= now < a + d for a, d in o["stalls"]):
+            time.sleep(0.01)
+            continue
         r, _, _ = select.select([fd], [], [], 0.01)
         if r:
             try:
