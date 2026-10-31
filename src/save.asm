@@ -19,10 +19,12 @@ save_hdr:   .skip   64
         .text
 
 // save_ppm(x0 = path, x1 = buf, x2 = stride, x3 = palette) -> w0 = 0 written, -1 failed
+save_ppm_alloc = -(16 + 56) & -16
+save_ppm_dealloc = 0 - save_ppm_alloc
         .balign 4
         .global save_ppm
 save_ppm:
-        stp     fp, lr, [sp, -80]!
+        stp     fp, lr, [sp, save_ppm_alloc]!
         mov     fp, sp
         stp     x19, x20, [sp, 16]
         stp     x21, x22, [sp, 32]
@@ -104,5 +106,5 @@ save_ppm_done:
         ldp     x21, x22, [sp, 32]
         ldp     x23, x24, [sp, 48]
         ldr     x25, [sp, 64]
-        ldp     fp, lr, [sp], 80
+        ldp     fp, lr, [sp], save_ppm_dealloc
         ret
