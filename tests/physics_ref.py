@@ -24,7 +24,7 @@ PIPES, SPACING, FIRST_X = 4, 72, 244
 CAP_W, CAP_H, GAP_H, GAP_MIN, GAP_RANGE = 26, 12, 50, 40, 71
 PIPE_OFF, PIPE_MID, BIRD_MID, PIPE_NONE = -26, 13, 8, 1000
 GROUND_PERIOD, OVER_LOCK, FADE_TICKS = 24, 90, 20
-AP_DELAY, AP_MARGIN = 30, 35
+AP_DELAY, AP_MARGIN = 30, 16
 TITLE, READY, PLAY, DYING, OVER, FADE = range(6)
 WING_FRAME = (0, 1, 2, 1)
 # shortcut: the box mask stands in for the bird until the art defines per-frame masks
@@ -196,7 +196,7 @@ class Sim:
         for x, gap in zip(self.px, self.gap):
             if x + CAP_W - 1 >= BIRD_X and (nx is None or x < nx):
                 nx, ng = x, gap
-        return (self.y >> 8) > ng + AP_MARGIN
+        return (self.y >> 8) + 12 // 2 > ng + GAP_H // 2 + AP_MARGIN
 
 
 def headless(ticks, seed, flaps, autopilot):
