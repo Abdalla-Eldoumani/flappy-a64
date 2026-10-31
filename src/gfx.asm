@@ -67,6 +67,9 @@ GFX_ANGLES = (SIM_TILT_DRAW_MAX - SIM_TILT_MIN) / GFX_ANGLE_STEP + 1
 GFX_ANGLE_LAST = GFX_ANGLES - 1
 GFX_ANGLE_ROUND = GFX_ANGLE_STEP / 2
 GFX_CLEAR = SLOT_CLEAR
+// an outline pixel looks at its 3 x 3 neighbourhood
+GFX_RING_W = 3
+GFX_RING = GFX_RING_W * GFX_RING_W
 GFX_BREATH = 200000
 GFX_MS = 1000000
 // a byte times this is that byte in all eight lanes of a word
@@ -485,7 +488,7 @@ gfx_outline_near:
         mov     x0, gfx_src_r
         mov     x1, gfx_w_r
         mov     x2, gfx_h_r
-        mov     x9, 3
+        mov     x9, GFX_RING_W
         udiv    x10, gfx_k_r, x9
         msub    x11, x10, x9, gfx_k_r
         add     x3, gfx_x_r, x11
@@ -495,7 +498,7 @@ gfx_outline_near:
         bl      gfx_on
         cbnz    x0, gfx_outline_put
         add     gfx_k_r, gfx_k_r, 1
-        cmp     gfx_k_r, 9
+        cmp     gfx_k_r, GFX_RING
         b.lt    gfx_outline_near
         mov     gfx_out32_r, GFX_CLEAR
 gfx_outline_put:
