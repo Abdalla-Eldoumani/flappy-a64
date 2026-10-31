@@ -211,9 +211,15 @@ term_putdec:
         mov     fp, sp
         ldr     x9, =term_dec
         add     x9, x9, x0, lsl 2
-        ldrb    w1, [x9]
-        add     x0, x9, 1
-        bl      term_put
+        ldrb    w1, [x9], 1
+        // an entry is a length and three digits, so one word moves any of them
+        ldr     w12, [x9]
+        ldr     x9, =term_len
+        ldr     x10, [x9]
+        ldr     x11, =term_out
+        str     w12, [x11, x10]
+        add     x10, x10, x1
+        str     x10, [x9]
         ldp     fp, lr, [sp], 16
         ret
 
@@ -222,9 +228,17 @@ term_putdec:
 term_putrec:
         stp     fp, lr, [sp, -16]!
         mov     fp, sp
-        ldrb    w1, [x0]
-        add     x0, x0, 1
-        bl      term_put
+        ldrb    w1, [x0], 1
+        // a record's text is at most 16 bytes and records sit TERM_REC apart, so one pair of
+        // words moves any of them; the bytes past its end are overwritten by what follows
+        ldp     x12, x13, [x0]
+        ldr     x9, =term_len
+        ldr     x10, [x9]
+        ldr     x11, =term_out
+        add     x11, x11, x10
+        stp     x12, x13, [x11]
+        add     x10, x10, x1
+        str     x10, [x9]
         ldp     fp, lr, [sp], 16
         ret
 
