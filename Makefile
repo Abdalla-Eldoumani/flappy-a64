@@ -74,7 +74,8 @@ smoke: build/flappy tests/node_modules
 best: build/flappy
 	cd build && bash ../tests/best.sh $(RUN)
 
-# a slow, stalled and closed terminal, a closed pipe, no terminal, extreme sizes, no best file
+# a slow, stalled and closed terminal, a closed pipe, no terminal, extreme sizes, a best score
+# file it cannot write
 harden: build/flappy tests/node_modules
 	cd build && bash ../tests/harden.sh $(RUN)
 
