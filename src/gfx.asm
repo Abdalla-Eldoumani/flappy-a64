@@ -30,6 +30,8 @@ GFX_STRIPE_Y = 212
 GFX_STRIPE = 12
 GFX_SCORE_Y = 20
 GFX_DIGIT_ADV = 12
+// rectangles end one past their last column; the body's last column is the one collision uses
+GFX_BODY_END = SIM_BODY_X1 + 1
 
         .section .rodata
         .balign 8
@@ -50,6 +52,7 @@ gfx_font3:
         .balign 64
 gfx_bg:         .skip   GFX_MAX_BUF
 gfx_div:        .skip   2048
+        .balign 8
         .global gfx_scale
         .global gfx_dw
         .global gfx_dh
@@ -355,7 +358,7 @@ gfx_frame_pipe:
         mov     x0, gfx_buf_r
         add     x1, gfx_x_r, 1
         mov     x2, GFX_DIV_LO
-        add     x3, gfx_x_r, 25
+        add     x3, gfx_x_r, GFX_BODY_END
         sub     x4, gfx_g_r, SIM_PIPE_CAP_H
         mov     w5, SLOT_PIPE
         bl      gfx_rect
@@ -377,7 +380,7 @@ gfx_frame_pipe:
         add     x1, gfx_x_r, 1
         add     x2, gfx_g_r, SIM_GAP_H
         add     x2, x2, SIM_PIPE_CAP_H
-        add     x3, gfx_x_r, 25
+        add     x3, gfx_x_r, GFX_BODY_END
         mov     x4, GROUND_Y
         mov     w5, SLOT_PIPE
         bl      gfx_rect
@@ -411,7 +414,6 @@ gfx_frame_stripe:
         add     gfx_x_r, gfx_x_r, GFX_STRIPE
         cmp     gfx_x_r, LOG_W
         b.lt    gfx_frame_stripe
-        // bird box: centred on the title, at the play column otherwise, bobbing before play
         ldr     x9, =sim_s
         ldr     x10, [x9, SIM_STATE]
         ldr     x11, [x9, SIM_Y]
@@ -454,7 +456,6 @@ gfx_frame_bird:
         add     x4, gfx_g_r, 5
         mov     w5, SLOT_DARK
         bl      gfx_rect
-        // score from get ready on; the title and the fade show none
         ldr     x9, =sim_s
         ldr     x10, [x9, SIM_STATE]
         cbz     x10, gfx_frame_done
