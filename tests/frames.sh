@@ -28,7 +28,7 @@ while read -r name seed tick size; do
   mkdir -p "$d"
   timeout 120 "$@" ./flappy --render-out --ticks "$tick" --autopilot --seed "$seed" --size "$size" \
     --dump-frames "$tick" --dump-dir "$d" > /dev/null || { echo "FAIL $name"; bad=1; continue; }
-  # whole-number upscaling keeps the pixels square: every frame ends 512 px tall
+  # whole-number upscaling keeps the pixels square, to at most 512 px tall
   s=$((512 / $(head -c 32 "$d/$tick.ppm" | sed -n 2p | cut -d' ' -f2)))
   pnmscale "$s" "$d/$tick.ppm" > "frames/$name.ppm"
   pnmtopng "frames/$name.ppm" > "frames/$name.png"
