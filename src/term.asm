@@ -54,11 +54,14 @@ TERM_SPACE = 32
 TERM_BLOCK = 8
 TERM_BYTE_BITS = 0x38
 TERM_BYTE_MASK = 0xFF
+// every byte of a block's mask set: every cell is sent
+TERM_ALL_CELLS = -1
 // where the bench adds up each kind of byte in term_bsplit
 TERM_SPLIT_CURSOR = 0
 TERM_SPLIT_COLOUR = 8
 TERM_SPLIT_GLYPH = 16
 TERM_SPLIT_OTHER = 24
+TERM_SPLIT_BYTES = TERM_SPLIT_OTHER + 8
 // the notice's lines: what the terminal is, what the game needs, then four lines of how
 TERM_SMALL_LINES = 6
 // gfx_geo's entry for the largest scale, which is the smallest display: its columns and rows
@@ -111,7 +114,7 @@ term_s_clear_end:
 // block three UTF-8 bytes, each padded to a word
         .balign 4
 term_glyphs:
-        .byte   32, 0, 0, 0
+        .byte   TERM_SPACE, 0, 0, 0
         .byte   0xE2, 0x96, 0x88, 0
         .byte   0xE2, 0x96, 0x80, 0
         .byte   0xE2, 0x96, 0x84, 0
@@ -157,7 +160,7 @@ term_bad:       .skip   8
         .global term_bsplit
 term_bench:     .skip   8
 // bench byte counts: cursor moves, colours, glyphs, everything else
-term_bsplit:    .skip   32
+term_bsplit:    .skip   TERM_SPLIT_BYTES
 // bytes the flushes of a bench frame have counted so far; term_bench_take adds the rest
 term_bframe:    .skip   8
 term_inited:    .skip   8
@@ -928,7 +931,7 @@ term_pf_block:
         b       term_pf_edge
 term_pf_all:
         // with no front buffer every cell is sent
-        mov     term_diff_r, TERM_UNKNOWN
+        mov     term_diff_r, TERM_ALL_CELLS
 term_pf_edge:
         // the last block can reach past the display's right edge into the row padding
         sub     x9, term_rdw_r, term_col_r
