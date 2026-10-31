@@ -10,6 +10,8 @@ ART_PAL_SPARE = (SLOT_COUNT - SLOT_TOUT - 1) * 4
 // one legend entry per 7-bit character code
 ART_MAP_BYTES = 128
 ART_CODE_MASK = ART_MAP_BYTES - 1
+// decoding costs about this many instructions a pixel, counted toward the next sleep
+ART_COST_DECODE = 10
 
         .section .rodata
 // day palette: slot -> R, G, B, pad
@@ -435,6 +437,7 @@ art_key:        .skip   8
 art_decode:
         stp     fp, lr, [sp, -16]!
         mov     fp, sp
+        mov     x12, x2
         ldr     x9, =art_map
         mov     x11, -1
         mov     x10, 0
@@ -461,6 +464,9 @@ art_decode_loop:
         strb    w11, [x3], 1
         subs    x2, x2, 1
         b.ne    art_decode_loop
+        mov     x9, ART_COST_DECODE
+        mul     x0, x12, x9
+        bl      gfx_breath
 art_decode_done:
         ldp     fp, lr, [sp], 16
         ret
