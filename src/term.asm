@@ -329,9 +329,11 @@ term_build_dig:
         ret
 
 // term_colours(x0 = palette): rebuilds every slot's colour strings when the palette changes
+term_colours_alloc = -(16 + 24) & -16
+term_colours_dealloc = 0 - term_colours_alloc
         .balign 4
 term_colours:
-        stp     fp, lr, [sp, -48]!
+        stp     fp, lr, [sp, term_colours_alloc]!
         mov     fp, sp
         stp     x19, x20, [sp, 16]
         str     x21, [sp, 32]
@@ -355,14 +357,16 @@ term_colours_loop:
         b.lt    term_colours_loop
         ldp     x19, x20, [sp, 16]
         ldr     x21, [sp, 32]
-        ldp     fp, lr, [sp], 48
+        ldp     fp, lr, [sp], term_colours_dealloc
         ret
 
 // present_open(x0 = logical w, x1 = logical h) -> w0 = scale 1..4, or 0 when the terminal is too small
+present_open_alloc = -(16 + 24) & -16
+present_open_dealloc = 0 - present_open_alloc
         .balign 4
         .global present_open
 present_open:
-        stp     fp, lr, [sp, -48]!
+        stp     fp, lr, [sp, present_open_alloc]!
         mov     fp, sp
         stp     x19, x20, [sp, 16]
         str     x21, [sp, 32]
@@ -458,7 +462,7 @@ term_open_fit:
 term_open_done:
         ldp     x19, x20, [sp, 16]
         ldr     x21, [sp, 32]
-        ldp     fp, lr, [sp], 48
+        ldp     fp, lr, [sp], present_open_dealloc
         ret
 
 // term_small(): the too-small notice; the next frame that fits repaints everything
@@ -504,9 +508,11 @@ term_small:
         ret
 
 // term_move(x0 = row, x1 = col): cursor to a cell by the shorter of a relative or an absolute move
+term_move_alloc = -(16 + 24) & -16
+term_move_dealloc = 0 - term_move_alloc
         .balign 4
 term_move:
-        stp     fp, lr, [sp, -48]!
+        stp     fp, lr, [sp, term_move_alloc]!
         mov     fp, sp
         stp     x19, x20, [sp, 16]
         str     x21, [sp, 32]
@@ -561,7 +567,7 @@ term_move_abs:
 term_move_done:
         ldp     x19, x20, [sp, 16]
         ldr     x21, [sp, 32]
-        ldp     fp, lr, [sp], 48
+        ldp     fp, lr, [sp], term_move_dealloc
         ret
 
 // term_cell(w0 = top slot, w1 = bottom slot, x2 = row, x3 = col): one changed cell
@@ -721,10 +727,12 @@ term_breathe_done:
         ret
 
 // present_frame(x0 = back, x1 = stride, x2 = palette, w3 = flags; bit 0 means the palette changed)
+present_frame_alloc = -(16 + 80) & -16
+present_frame_dealloc = 0 - present_frame_alloc
         .balign 4
         .global present_frame
 present_frame:
-        stp     fp, lr, [sp, -96]!
+        stp     fp, lr, [sp, present_frame_alloc]!
         mov     fp, sp
         stp     x19, x20, [sp, 16]
         stp     x21, x22, [sp, 32]
@@ -873,7 +881,7 @@ term_pf_flush:
         ldp     x23, x24, [sp, 48]
         ldp     x25, x26, [sp, 64]
         ldp     x27, x28, [sp, 80]
-        ldp     fp, lr, [sp], 96
+        ldp     fp, lr, [sp], present_frame_dealloc
         ret
 
 // present_close(): undoes the terminal setup in reverse order
