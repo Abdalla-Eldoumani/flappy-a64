@@ -508,7 +508,8 @@ art_build_night:
         b.lt    art_build_night
 art_build_bird:
         ldr     x13, =art_birds
-        add     x13, x13, x1, lsl 4
+        mov     x9, ART_BIRD_BYTES
+        madd    x13, x1, x9, x13
         add     x15, x12, ART_BIRD_OFF
         mov     x14, 0
 art_build_colour:
