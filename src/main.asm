@@ -16,6 +16,7 @@ define(main_dst_r, x20)
 define(main_cap_r, x21)
 define(main_cnt_r, x22)
 define(main_sim_r, x19)
+define(main_dbg_r, x19)
 
 MAIN_HEADLESS = 1
 MAIN_RENDER = 2
@@ -24,9 +25,14 @@ MAIN_DUMP_MAX = 1024
 MAIN_PERIOD = 16666667
 MAIN_PERIOD3 = 16666666
 MAIN_CATCHUP = 5
+// as many ticks as either profile waits for before it draws
+MAIN_FORCE = 2
 MAIN_RESIZE = 30
 MAIN_LINE_TICKS = 60
 MAIN_MS = 1000000
+MAIN_SECOND = 1000000000
+// the debug numbers refresh twice a second; outlining the text costs too much per frame
+MAIN_DBG_FRAMES = 30
 MAIN_NUM_CAP = 1000000000000
 MAIN_IDX_FLAGS = O_WRONLY + O_CREAT + O_TRUNC
 MAIN_IDX_MODE = 420
@@ -46,6 +52,13 @@ main_o_size:        .asciz  "--size"
 main_s_idx:         .asciz  "render.idx"
 main_s_ppm:         .asciz  ".ppm"
 main_s_end:         .asciz  "END "
+main_s_fps:         .asciz  "FPS "
+main_s_bytes:       .asciz  "_B "
+main_s_avg:         .asciz  "_AVG "
+main_s_scale:       .asciz  "_S"
+main_s_full:        .asciz  " FULL"
+main_s_lite:        .asciz  " LITE"
+main_s_drop:        .asciz  "_DROP "
 main_e_tty:
         .ascii  "flappy: stdin is not a terminal; --headless and --render-out run without one"
         .byte   10
@@ -98,7 +111,13 @@ main_start:     .skip   8
 main_idxfd:     .skip   8
 main_lastc:     .skip   8
 main_lastr:     .skip   8
+main_lastfl:    .skip   8
 main_prevst:    .skip   8
+main_dbgn:      .skip   8
+main_fpst:      .skip   8
+main_fpsn:      .skip   8
+main_lastb:     .skip   8
+main_dbgtxt:    .skip   64
         .balign 8
         .global main_pace
 main_pace:      .skip   8
@@ -725,7 +744,7 @@ main_dump_name:
         ldr     x1, [x1]
         ldr     x2, =gfx_stride
         ldr     x2, [x2]
-        ldr     x3, =art_pal
+        ldr     x3, =gfx_pal
         bl      save_ppm
 main_dump_done:
         ldr     main_arg_r, [sp, 16]
@@ -741,26 +760,36 @@ main_draw:
         mov     fp, sp
         str     main_arg_r, [sp, 16]
         mov     main_arg_r, x0
-        ldr     x9, =sim_s
-        ldr     x0, [x9, SIM_THEME]
-        ldr     x1, [x9, SIM_BIRDC]
-        bl      art_build
+        bl      gfx_palette
         ldr     x9, =main_palnew
         ldr     x10, [x9]
         orr     x10, x10, x0
         str     x10, [x9]
+        bl      main_debug
+        bl      main_flags
+        mov     w1, w0
         ldr     x9, =main_back
         ldr     x0, [x9]
         bl      gfx_frame
+        ldr     x9, =term_total
+        ldr     x10, [x9]
+        ldr     x9, =main_lastb
+        str     x10, [x9]
         ldr     x9, =main_back
         ldr     x0, [x9]
         ldr     x1, =gfx_stride
         ldr     x1, [x1]
-        ldr     x2, =art_pal
+        ldr     x2, =gfx_pal
         ldr     x9, =main_palnew
         ldr     w3, [x9]
         str     xzr, [x9]
         bl      present_frame
+        ldr     x9, =term_total
+        ldr     x10, [x9]
+        ldr     x9, =main_lastb
+        ldr     x11, [x9]
+        sub     x10, x10, x11
+        str     x10, [x9]
         mov     x0, main_arg_r
         bl      main_dump
         ldr     x9, =main_frames
@@ -794,6 +823,21 @@ main_buffers:
         ldp     fp, lr, [sp], 16
         ret
 
+// main_flags() -> w0 = 1 while paused, + 2 while the debug overlay is on
+        .balign 4
+main_flags:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =tty_pause
+        ldr     x9, [x9]
+        and     x9, x9, 1
+        ldr     x10, =tty_debug
+        ldr     x10, [x10]
+        and     x10, x10, 1
+        orr     w0, w9, w10, lsl 1
+        ldp     fp, lr, [sp], 16
+        ret
+
 // main_ended(): the tick a run reaches its over screen, its score meets the best
         .balign 4
 main_ended:
@@ -812,6 +856,96 @@ main_ended:
         bl      save_best_check
 main_ended_done:
         ldp     fp, lr, [sp], 16
+        ret
+
+// main_debug(): while the overlay is on, its text is rebuilt every MAIN_DBG_FRAMES frames
+main_debug_alloc = -(16 + 8) & -16
+main_debug_dealloc = 0 - main_debug_alloc
+        .balign 4
+main_debug:
+        stp     fp, lr, [sp, main_debug_alloc]!
+        mov     fp, sp
+        str     main_dbg_r, [sp, 16]
+        ldr     x9, =tty_debug
+        ldr     x9, [x9]
+        ldr     x10, =main_dbgn
+        tbnz    x9, 0, main_debug_on
+        str     xzr, [x10]
+        b       main_debug_done
+main_debug_on:
+        ldr     x11, [x10]
+        add     x12, x11, 1
+        cmp     x12, MAIN_DBG_FRAMES
+        csel    x12, x12, xzr, lt
+        str     x12, [x10]
+        cbnz    x11, main_debug_done
+        bl      main_clock
+        ldr     x9, =main_fpst
+        ldr     x10, [x9]
+        str     x0, [x9]
+        sub     x10, x0, x10
+        ldr     x11, =main_frames
+        ldr     x11, [x11]
+        ldr     x12, =main_fpsn
+        ldr     x13, [x12]
+        str     x11, [x12]
+        sub     x13, x11, x13
+        ldr     x14, =MAIN_SECOND
+        mul     x13, x13, x14
+        mov     x0, 0
+        cbz     x10, main_debug_text
+        udiv    x0, x13, x10
+main_debug_text:
+        mov     main_dbg_r, x0
+        ldr     x0, =main_dbgtxt
+        ldr     x1, =main_s_fps
+        bl      main_cpy
+        mov     x1, x0
+        mov     x0, main_dbg_r
+        bl      main_fmt_dec
+        ldr     x1, =main_s_bytes
+        bl      main_cpy
+        mov     x1, x0
+        ldr     x9, =main_lastb
+        ldr     x0, [x9]
+        bl      main_fmt_dec
+        ldr     x1, =main_s_avg
+        bl      main_cpy
+        mov     x1, x0
+        ldr     x9, =term_total
+        ldr     x9, [x9]
+        ldr     x10, =main_frames
+        ldr     x10, [x10]
+        mov     x0, 0
+        cbz     x10, main_debug_avg
+        udiv    x0, x9, x10
+main_debug_avg:
+        bl      main_fmt_dec
+        ldr     x1, =main_s_scale
+        bl      main_cpy
+        mov     x1, x0
+        ldr     x9, =main_scale
+        ldr     x0, [x9]
+        bl      main_fmt_dec
+        ldr     x1, =main_s_full
+        ldr     x9, =main_lite
+        ldr     x9, [x9]
+        cbz     x9, main_debug_profile
+        ldr     x1, =main_s_lite
+main_debug_profile:
+        bl      main_cpy
+        ldr     x1, =main_s_drop
+        bl      main_cpy
+        mov     x1, x0
+        ldr     x9, =main_dropped
+        ldr     x0, [x9]
+        bl      main_fmt_dec
+        strb    wzr, [x0]
+        ldr     x0, =main_dbgtxt
+        bl      gfx_overlay
+main_debug_done:
+        ldr     main_dbg_r, [sp, 16]
+        ldp     fp, lr, [sp], main_debug_dealloc
         ret
 
 // main_render(): the full game with rendering into stdout, no terminal and no sleeping
@@ -1114,6 +1248,14 @@ main_play_sleep:
 main_play_poll:
         mov     x0, main_t_r
         bl      tty_poll
+        bl      main_flags
+        ldr     x9, =main_lastfl
+        ldr     x10, [x9]
+        cmp     x0, x10
+        b.eq    main_play_quit
+        str     x0, [x9]
+        mov     main_since_r, MAIN_FORCE
+main_play_quit:
         ldr     x9, =tty_quit
         ldr     x9, [x9]
         cbz     x9, main_play_loop
