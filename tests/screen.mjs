@@ -3,7 +3,8 @@
 // the exit's restore sequence starts, because leaving the alternate screen would hide the game.
 // usage, from build/: node ../tests/screen.mjs CAPTURE COLS ROWS OUT.ppm [OFFSET:CxR ...] [@OFFSET]
 // OFFSET:CxR resizes after that many capture bytes; @OFFSET shows the screen at that byte.
-// prints the final size and how many cells were never painted
+// prints the final size and how many cells were never painted; OUT - prints the screen's text
+// instead, one line per row with trailing blanks dropped
 import { readFileSync, writeFileSync } from 'node:fs';
 import xterm from '@xterm/headless';
 import { halves } from './cells.mjs';
@@ -31,6 +32,10 @@ await feed(data.subarray(fed));
 
 const { cols, rows } = term;
 const buf = term.buffer.active;
+if (out === '-') {
+  for (let r = 0; r < rows; r++) console.log(buf.getLine(r).translateToString(true));
+  process.exit(0);
+}
 const px = Buffer.alloc(cols * rows * 2 * 3);
 const put = (x, y, v) => {
   const i = (y * cols + x) * 3;
