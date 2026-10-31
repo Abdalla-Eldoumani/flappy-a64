@@ -216,6 +216,8 @@ SLOT_BEAK2 = 28
 SLOT_WHITE = 29
 SLOT_TOUT = 30
 SLOT_COUNT = 64
+// a decoded sprite pixel with this value is transparent
+SLOT_CLEAR = 255
 
 // display, at scale 1
 GFX_MAX_BUF = LOG_W * LOG_H
