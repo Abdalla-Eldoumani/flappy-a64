@@ -22,7 +22,7 @@ TTY_ESC_TICKS = 2
 TTY_WAIT_NS = 1000000
 TTY_WAIT_MAX = 2000
 
-TTY_GROUND = 0
+// decoder states; 0 is ground, outside any sequence
 TTY_ESC = 1
 TTY_CSI = 2
 TTY_SS3 = 3
@@ -42,6 +42,7 @@ tty_desc:   .skip   8
 tty_dfirst: .skip   8
 tty_dnum:   .skip   8
 tty_dfield: .skip   8
+        .balign 8
         .global tty_flaps
         .global tty_quit
         .global tty_pause
