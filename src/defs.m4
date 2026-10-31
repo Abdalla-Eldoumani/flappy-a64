@@ -95,6 +95,10 @@ SIM_FADE_TICKS = 20
 SIM_AP_DELAY = 30
 SIM_AP_MARGIN = 16
 SIM_TITLE_X = 64
+// medals: one per GFX_MEDAL_STEP points, bronze to platinum; the hit flash fades this long
+GFX_MEDAL_STEP = 10
+GFX_MEDALS = 4
+GFX_FLASH_TICKS = 18
 
 // art geometry, shared because the sprites are decoded and placed in other files
 ART_FRAMES = 3
