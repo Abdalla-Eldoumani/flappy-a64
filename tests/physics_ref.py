@@ -27,8 +27,19 @@ GROUND_PERIOD, OVER_LOCK, FADE_TICKS = 24, 90, 20
 AP_DELAY, AP_MARGIN = 30, 16
 TITLE, READY, PLAY, DYING, OVER, FADE = range(6)
 WING_FRAME = (0, 1, 2, 1)
-# shortcut: the box mask stands in for the bird until the art defines per-frame masks
-MASKS = [[(1 << BIRD_W) - 1] * 12 for _ in range(3)]
+
+
+def bird_masks():
+    # the game derives its masks from these rows too, so they are read rather than copied
+    art = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "art.asm")
+    lines = open(art).read().splitlines()
+    i = lines.index("art_bird1:")
+    rows = [ln.split('"')[1] for ln in lines[i + 1:i + 37]]
+    return [[sum(1 << k for k, ch in enumerate(rows[f * 12 + r]) if ch != ".") for r in range(12)]
+            for f in range(3)]
+
+
+MASKS = bird_masks()
 
 FIELDS = ("state st y vy gc tilt wing wsub bob bobd ground score hitpipe hitt theme birdc "
           "rng tcount").split()
