@@ -12,6 +12,8 @@ ART_MAP_BYTES = 128
 ART_CODE_MASK = ART_MAP_BYTES - 1
 // decoding costs about this many instructions a pixel, counted toward the next sleep
 ART_COST_DECODE = 10
+// a byte times this is that byte in all eight lanes of a word
+ART_BYTES8 = 0x0101010101010101
 
         .section .rodata
 // day palette: slot -> R, G, B, pad
@@ -438,7 +440,9 @@ art_decode:
         mov     fp, sp
         mov     x12, x2
         ldr     x9, =art_map
-        mov     x11, -1
+        mov     x11, SLOT_CLEAR
+        ldr     x10, =ART_BYTES8
+        mul     x11, x11, x10
         mov     x10, 0
 art_decode_clear:
         str     x11, [x9, x10]
