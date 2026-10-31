@@ -1,19 +1,25 @@
 // Shared definitions for every source file: frame aliases, syscalls, layout, physics.
 // Constants are assembler symbols so m4 never rewrites them; only register aliases are m4.
 //
-// Byte budget (each section must stay under 1 MiB)
-//   .bss    main  display buffers 2 x 36864           73728
-//                 flap list 4096 x 4, dump list 1024 x 4 20480
-//           gfx   static background                   36864
-//                 division table 1024 x 2              2048
-//           term  output buffer                       131072
-//                 colour strings 2 x 64 x 24, decimals  7168
-//           sim   state 26 x 8                           208
-//           tty   termios x 2, input buffer              256
-//           save  ppm row buffer                         512
-//           total                                     272336
-//   .rodata art   palette 64 x 4, digit font             416
-//           main  messages                              under 2048
+// Byte budget, from size -A on each object (each section must stay under 1 MiB)
+//   .bss    main  display buffers 2 x 36864                     73728
+//                 flap list 4096 x 4, dump list 1024 x 4        20480
+//                 line, path, settings                            992
+//           gfx   logical scratch 240 x 256                     61440
+//                 static background                             36864
+//                 rotated bird, 69 boxes of 24 x 24             39744
+//                 ground strip 240 x 56                         13440
+//                 division table, sprites, digits, geometry      4912
+//           term  output buffer                                131072
+//                 colour strings 2 x 64 x 24, decimals, state    7248
+//           art   palette, legend map                             392
+//           sim   state 26 x 8, masks 36 x 4                      352
+//           tty   termios x 2, input buffer, decoder              296
+//           save  ppm row buffer, header                          576
+//                 total                                        391536
+//   .rodata art   palettes, legends, trig, sprite text           7744
+//           rest  messages and tables                             568
+//                 total                                          8312
 
 define(fp, x29)
 define(lr, x30)
@@ -63,6 +69,7 @@ SIM_TILT_FLAP = 90
 SIM_TILT_STEP = 3
 SIM_TILT_MIN = -180
 SIM_TILT_HIT_STEP = 7
+SIM_TILT_DRAW_MAX = 40
 SIM_WING_TICKS = 6
 SIM_BOB_STEP = 64
 SIM_BOB_MAX = 1024
@@ -89,6 +96,36 @@ SIM_AP_DELAY = 30
 SIM_AP_MARGIN = 16
 SIM_TITLE_X = 64
 
+// art geometry, shared because the sprites are decoded and placed in other files
+ART_FRAMES = 3
+ART_CLOUD_W = 48
+ART_CLOUD_H = 12
+ART_CLOUD_PX = ART_CLOUD_W * ART_CLOUD_H
+ART_CITY_W = 48
+ART_CITY_H = 26
+ART_CITY_PX = ART_CITY_W * ART_CITY_H
+ART_BUSH_W = 36
+ART_BUSH_H = 16
+ART_BUSH_PX = ART_BUSH_W * ART_BUSH_H
+ART_GROUND_H = 12
+ART_GROUND_PX = SIM_GROUND_PERIOD * ART_GROUND_H
+ART_CAP_PX = SIM_PIPE_CAP_W * SIM_PIPE_CAP_H
+ART_BODY_W = SIM_PIPE_CAP_W - 2
+// glyph text: w x h characters plus a slash between rows
+ART_BIG_W = 6
+ART_BIG_H = 10
+ART_BIG_STEP = ART_BIG_W * ART_BIG_H + ART_BIG_H - 1
+ART_F5_W = 5
+ART_F5_H = 7
+ART_F5_STEP = ART_F5_W * ART_F5_H + ART_F5_H - 1
+ART_F3_W = 3
+ART_F3_H = 5
+ART_F3_STEP = ART_F3_W * ART_F3_H + ART_F3_H - 1
+ART_DIGIT0 = 26
+ART_CLEAR = 46
+ART_ON = 43
+ART_SLASH = 47
+
 SIM_CEIL = SIM_CEIL_PX * 256
 SIM_Y0_Q8 = SIM_BIRD_Y0 * 256
 SIM_Y_MAX = (GROUND_Y - SIM_BIRD_LOW) * 256
@@ -104,6 +141,8 @@ SIM_NEXT_X = SIM_BIRD_X - SIM_CAP_X1
 SIM_LOW_CAP = SIM_GAP_H + SIM_PIPE_CAP_H
 SIM_MASK_LAST = SIM_BIRD_W - 1
 SIM_MASK_BYTES = SIM_BIRD_H * 4
+SIM_MASK_ROWS = ART_FRAMES * SIM_BIRD_H
+SIM_MASKS_SIZE = ART_FRAMES * SIM_MASK_BYTES
 SIM_AP_OVER = SIM_OVER_LOCK + SIM_AP_DELAY
 SIM_AP_BIRD = SIM_BIRD_H / 2
 SIM_AP_GAP = SIM_GAP_H / 2 + SIM_AP_MARGIN
@@ -137,18 +176,38 @@ SIM_TCOUNT = 136
 SIM_PIPEX = 144
 SIM_SIZE = 208
 
-// colour slots
+// colour slots: what each pixel stores; a palette maps them to RGB
 SLOT_BORDER = 0
-SLOT_SKY = 1
+SLOT_SKY1 = 1
 SLOT_SKY2 = 2
-SLOT_GROUND = 3
-SLOT_GROUND2 = 4
-SLOT_GRASS = 5
-SLOT_PIPE = 6
-SLOT_BIRD = 7
-SLOT_WHITE = 8
-SLOT_DARK = 9
-SLOT_PIPE2 = 10
+SLOT_CLOUD = 3
+SLOT_CLOUD2 = 4
+SLOT_CITY = 5
+SLOT_CITY2 = 6
+SLOT_WINDOW = 7
+SLOT_BUSH = 8
+SLOT_BUSH2 = 9
+SLOT_GLINE = 10
+SLOT_GRASS = 11
+SLOT_GRASS2 = 12
+SLOT_GRASSDK = 13
+SLOT_DIRT = 14
+SLOT_DIRT2 = 15
+SLOT_POUT = 16
+SLOT_PLIGHT = 17
+SLOT_PMID = 18
+SLOT_PDARK = 19
+SLOT_BOUT = 20
+SLOT_BODY = 21
+SLOT_BSHADE = 22
+SLOT_BELLY = 23
+SLOT_WING = 24
+SLOT_EYE = 25
+SLOT_PUPIL = 26
+SLOT_BEAK = 27
+SLOT_BEAK2 = 28
+SLOT_WHITE = 29
+SLOT_TOUT = 30
 SLOT_COUNT = 64
 
 // display, at scale 1
