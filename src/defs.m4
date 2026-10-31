@@ -63,7 +63,6 @@ SIM_TILT_FLAP = 90
 SIM_TILT_STEP = 3
 SIM_TILT_MIN = -180
 SIM_TILT_HIT_STEP = 7
-SIM_TILT_DRAW_MAX = 40
 SIM_WING_TICKS = 6
 SIM_BOB_STEP = 64
 SIM_BOB_MAX = 1024
@@ -109,8 +108,7 @@ SIM_AP_OVER = SIM_OVER_LOCK + SIM_AP_DELAY
 SIM_AP_BIRD = SIM_BIRD_H / 2
 SIM_AP_GAP = SIM_GAP_H / 2 + SIM_AP_MARGIN
 
-// states
-SIM_TITLE = 0
+// states; the title is 0, the zeroed field, so code tests it with cbz and cbnz
 SIM_READY = 1
 SIM_PLAY = 2
 SIM_DYING = 3
