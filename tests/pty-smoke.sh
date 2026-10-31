@@ -13,7 +13,9 @@ session() {
   while [ "$1" != "--" ]; do opts+=("$1"); shift; done
   shift
   timeout 60 python3 "$here/pty_run.py" --out "smoke-$name.out" "${opts[@]}" -- \
-    sh -c 'stty -g > "smoke-$0.before"; "$@"; echo "EXIT=$?"; stty -g > "smoke-$0.after"' \
+    sh -c 'f="import fcntl, os; print(fcntl.fcntl(0, fcntl.F_GETFL) & os.O_NONBLOCK)"
+      { stty -g; python3 -c "$f"; } > "smoke-$0.before"; "$@"; echo "EXIT=$?"
+      { stty -g; python3 -c "$f"; } > "smoke-$0.after"' \
     "$name" "${RUNNER[@]}" ./flappy "$@" > "smoke-$name.status"
 }
 
@@ -29,7 +31,7 @@ sys.exit(0 if d.endswith(end) else 1)
 EOF
   then
     if cmp -s "smoke-$name.before" "smoke-$name.after"; then echo "PASS $name"
-    else echo "FAIL $name: termios differs after exit"; bad=1; fi
+    else echo "FAIL $name: termios or O_NONBLOCK differs after exit"; bad=1; fi
   else
     echo "FAIL $name: capture does not end with the restore sequence and EXIT=$want"
     tail -c 200 "smoke-$name.out" | od -c | tail -6; bad=1
