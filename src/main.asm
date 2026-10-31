@@ -1,0 +1,1083 @@
+// flappy: a remake of Flappy Bird's gameplay for a terminal, in AArch64 assembly.
+// main_: arguments, start-up order, the paced loop, shutdown and the headless modes.
+
+define(main_argc_r, x19)
+define(main_argv_r, x20)
+define(main_i_r, x21)
+define(main_t_r, x22)
+define(main_next_r, x23)
+define(main_phase_r, x24)
+define(main_ran_r, x25)
+define(main_now_r, x26)
+define(main_since_r, x27)
+define(main_k_r, x28)
+
+MAIN_PLAY = 0
+MAIN_HEADLESS = 1
+MAIN_RENDER = 2
+MAIN_FLAP_MAX = 4096
+MAIN_DUMP_MAX = 1024
+MAIN_PERIOD = 16666667
+MAIN_PERIOD3 = 16666666
+MAIN_CATCHUP = 5
+MAIN_RESIZE = 30
+MAIN_LINE_TICKS = 60
+MAIN_MS = 1000000
+MAIN_NUM_CAP = 1000000000000
+MAIN_IDX_FLAGS = 577
+MAIN_IDX_MODE = 420
+
+        .section .rodata
+main_o_headless:    .asciz  "--headless"
+main_o_render:      .asciz  "--render-out"
+main_o_auto:        .asciz  "--autopilot"
+main_o_lite:        .asciz  "--lite"
+main_o_stats:       .asciz  "--stats"
+main_o_ticks:       .asciz  "--ticks"
+main_o_seed:        .asciz  "--seed"
+main_o_flaps:       .asciz  "--flaps"
+main_o_dumps:       .asciz  "--dump-frames"
+main_o_dumpdir:     .asciz  "--dump-dir"
+main_o_size:        .asciz  "--size"
+main_s_idx:         .asciz  "render.idx"
+main_s_ppm:         .asciz  ".ppm"
+main_s_end:         .asciz  "END "
+main_e_tty:
+        .ascii  "flappy: stdin is not a terminal; --headless and --render-out run without one"
+        .byte   10
+main_e_tty_end:
+main_e_arg:         .ascii  "flappy: bad argument: "
+main_e_arg_end:
+main_e_small:
+        .ascii  "flappy: the --size given is too small, the game needs 36x32"
+        .byte   10
+main_e_small_end:
+
+MAIN_E_TTY_LEN = main_e_tty_end - main_e_tty
+MAIN_E_ARG_LEN = main_e_arg_end - main_e_arg
+MAIN_E_SMALL_LEN = main_e_small_end - main_e_small
+
+        .bss
+        .balign 64
+main_bufa:      .skip   GFX_MAX_BUF
+main_bufb:      .skip   GFX_MAX_BUF
+main_flaps:     .skip   16384
+main_dumps:     .skip   4096
+main_line:      .skip   256
+main_path:      .skip   512
+main_ts:        .skip   16
+        .global main_size_c
+        .global main_size_r
+main_size_c:    .skip   8
+main_size_r:    .skip   8
+main_mode:      .skip   8
+main_ticks:     .skip   8
+main_seed:      .skip   8
+main_seeded:    .skip   8
+main_auto:      .skip   8
+main_lite:      .skip   8
+main_stats:     .skip   8
+main_nflaps:    .skip   8
+main_fi:        .skip   8
+main_ndumps:    .skip   8
+main_di:        .skip   8
+main_dumpdir:   .skip   8
+main_back:      .skip   8
+main_front:     .skip   8
+main_scale:     .skip   8
+main_palnew:    .skip   8
+main_frames:    .skip   8
+main_simticks:  .skip   8
+main_dropped:   .skip   8
+main_start:     .skip   8
+main_idxfd:     .skip   8
+main_lastc:     .skip   8
+main_lastr:     .skip   8
+
+        .text
+
+// main_streq(x0 = a, x1 = b) -> w0 = 1 when the two strings match
+        .balign 4
+main_streq:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+main_streq_loop:
+        ldrb    w9, [x0], 1
+        ldrb    w10, [x1], 1
+        cmp     w9, w10
+        b.ne    main_streq_no
+        cbnz    w9, main_streq_loop
+        mov     w0, 1
+        b       main_streq_done
+main_streq_no:
+        mov     w0, 0
+main_streq_done:
+        ldp     fp, lr, [sp], 16
+        ret
+
+// main_strlen(x0 = string) -> x0 = length
+        .balign 4
+main_strlen:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        mov     x9, x0
+main_strlen_loop:
+        ldrb    w10, [x9], 1
+        cbnz    w10, main_strlen_loop
+        sub     x0, x9, x0
+        sub     x0, x0, 1
+        ldp     fp, lr, [sp], 16
+        ret
+
+// main_num(x0 = string) -> x0 = value, x1 = first byte after the digits, w2 = 1 if any digit
+        .balign 4
+main_num:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        mov     x1, x0
+        mov     x0, 0
+        mov     w2, 0
+        mov     x11, 10
+        ldr     x12, =MAIN_NUM_CAP
+main_num_loop:
+        ldrb    w9, [x1]
+        sub     w10, w9, 48
+        cmp     w10, 9
+        b.hi    main_num_done
+        madd    x0, x0, x11, x10
+        cmp     x0, x12
+        csel    x0, x0, x12, le
+        mov     w2, 1
+        add     x1, x1, 1
+        b       main_num_loop
+main_num_done:
+        ldp     fp, lr, [sp], 16
+        ret
+
+// main_cpy(x0 = dest, x1 = string) -> x0 = dest end, the NUL not copied
+        .balign 4
+main_cpy:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+main_cpy_loop:
+        ldrb    w9, [x1], 1
+        cbz     w9, main_cpy_done
+        strb    w9, [x0], 1
+        b       main_cpy_loop
+main_cpy_done:
+        ldp     fp, lr, [sp], 16
+        ret
+
+// main_fmt_dec(x0 = signed value, x1 = dest) -> x0 = end of the digits
+        .balign 4
+        .global main_fmt_dec
+main_fmt_dec:
+        stp     fp, lr, [sp, -48]!
+        mov     fp, sp
+        tbz     x0, 63, main_fmt_pos
+        mov     w9, 45
+        strb    w9, [x1], 1
+        neg     x0, x0
+main_fmt_pos:
+        add     x9, sp, 16
+        mov     x10, 0
+        mov     x11, 10
+main_fmt_split:
+        udiv    x12, x0, x11
+        msub    x13, x12, x11, x0
+        add     w13, w13, 48
+        strb    w13, [x9, x10]
+        add     x10, x10, 1
+        mov     x0, x12
+        cbnz    x0, main_fmt_split
+main_fmt_out:
+        sub     x10, x10, 1
+        ldrb    w13, [x9, x10]
+        strb    w13, [x1], 1
+        cbnz    x10, main_fmt_out
+        mov     x0, x1
+        ldp     fp, lr, [sp], 48
+        ret
+
+// main_fmt_hex(x0 = value, x1 = dest) -> x0 = end of 16 lowercase hex digits
+        .balign 4
+main_fmt_hex:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        mov     x9, 60
+main_hex_loop:
+        lsr     x10, x0, x9
+        and     x10, x10, 15
+        add     x11, x10, 48
+        add     x12, x10, 87
+        cmp     x10, 10
+        csel    x10, x11, x12, lt
+        strb    w10, [x1], 1
+        subs    x9, x9, 4
+        b.ge    main_hex_loop
+        mov     x0, x1
+        ldp     fp, lr, [sp], 16
+        ret
+
+// main_write(w0 = fd, x1 = start, x2 = end): writes [start, end)
+        .balign 4
+main_write:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        sub     x2, x2, x1
+        bl      tty_write_all
+        ldp     fp, lr, [sp], 16
+        ret
+
+// main_clock() -> x0 = CLOCK_MONOTONIC in nanoseconds
+        .balign 4
+main_clock:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        mov     x0, CLOCK_MONOTONIC
+        ldr     x1, =main_ts
+        mov     x8, SYS_CLOCK_GETTIME
+        svc     0
+        ldr     x9, =main_ts
+        ldp     x10, x11, [x9]
+        ldr     x12, =1000000000
+        madd    x0, x10, x12, x11
+        ldp     fp, lr, [sp], 16
+        ret
+
+// main_exit(w0 = status): leaves raw mode and ends the process; never returns
+        .balign 4
+        .global main_exit
+main_exit:
+        stp     fp, lr, [sp, -32]!
+        mov     fp, sp
+        str     x19, [sp, 16]
+        mov     w19, w0
+        bl      tty_close
+        mov     w0, w19
+        mov     x8, SYS_EXIT_GROUP
+        svc     0
+
+// main_badarg(x0 = argument): reports it on stderr and exits with status 2
+        .balign 4
+main_badarg:
+        stp     fp, lr, [sp, -32]!
+        mov     fp, sp
+        str     x19, [sp, 16]
+        mov     x19, x0
+        mov     w0, 2
+        ldr     x1, =main_e_arg
+        mov     x2, MAIN_E_ARG_LEN
+        bl      tty_write_all
+        mov     x0, x19
+        bl      main_strlen
+        mov     x2, x0
+        mov     w0, 2
+        mov     x1, x19
+        bl      tty_write_all
+        ldr     x1, =main_line
+        mov     w9, 10
+        strb    w9, [x1]
+        mov     w0, 2
+        mov     x2, 1
+        bl      tty_write_all
+        mov     w0, 2
+        bl      main_exit
+
+// main_list(x0 = string, x1 = dest words, x2 = capacity) -> x0 = count; a malformed list exits
+        .balign 4
+main_list:
+        stp     fp, lr, [sp, -64]!
+        mov     fp, sp
+        stp     x19, x20, [sp, 16]
+        stp     x21, x22, [sp, 32]
+        mov     x19, x0
+        mov     x20, x1
+        mov     x21, x2
+        mov     x22, 0
+        mov     x9, x0
+        str     x9, [sp, 48]
+main_list_loop:
+        mov     x0, x19
+        bl      main_num
+        cbz     w2, main_list_bad
+        cmp     x22, x21
+        b.ge    main_list_bad
+        str     w0, [x20, x22, lsl 2]
+        add     x22, x22, 1
+        ldrb    w9, [x1]
+        cbz     w9, main_list_done
+        cmp     w9, 44
+        b.ne    main_list_bad
+        add     x19, x1, 1
+        b       main_list_loop
+main_list_bad:
+        ldr     x0, [sp, 48]
+        bl      main_badarg
+main_list_done:
+        mov     x0, x22
+        ldp     x19, x20, [sp, 16]
+        ldp     x21, x22, [sp, 32]
+        ldp     fp, lr, [sp], 64
+        ret
+
+// main_value(x0 = string) -> x0 = the whole string as a number; anything else exits
+        .balign 4
+main_value:
+        stp     fp, lr, [sp, -32]!
+        mov     fp, sp
+        str     x19, [sp, 16]
+        mov     x19, x0
+        bl      main_num
+        cbz     w2, main_value_bad
+        ldrb    w9, [x1]
+        cbnz    w9, main_value_bad
+        ldr     x19, [sp, 16]
+        ldp     fp, lr, [sp], 32
+        ret
+main_value_bad:
+        mov     x0, x19
+        bl      main_badarg
+
+// main_parse(): reads every argument into the main_ settings
+        .balign 4
+main_parse:
+        stp     fp, lr, [sp, -48]!
+        mov     fp, sp
+        stp     x21, x28, [sp, 16]
+        mov     main_i_r, 1
+        b       main_parse_test
+main_parse_loop:
+        ldr     main_k_r, [main_argv_r, main_i_r, lsl 3]
+        mov     x0, main_k_r
+        ldr     x1, =main_o_headless
+        bl      main_streq
+        cbz     w0, main_parse_render
+        mov     x9, MAIN_HEADLESS
+        ldr     x10, =main_mode
+        str     x9, [x10]
+        b       main_parse_next
+main_parse_render:
+        mov     x0, main_k_r
+        ldr     x1, =main_o_render
+        bl      main_streq
+        cbz     w0, main_parse_auto
+        mov     x9, MAIN_RENDER
+        ldr     x10, =main_mode
+        str     x9, [x10]
+        b       main_parse_next
+main_parse_auto:
+        mov     x0, main_k_r
+        ldr     x1, =main_o_auto
+        bl      main_streq
+        cbz     w0, main_parse_lite
+        ldr     x10, =main_auto
+        b       main_parse_flag
+main_parse_lite:
+        mov     x0, main_k_r
+        ldr     x1, =main_o_lite
+        bl      main_streq
+        cbz     w0, main_parse_stats
+        ldr     x10, =main_lite
+        b       main_parse_flag
+main_parse_stats:
+        mov     x0, main_k_r
+        ldr     x1, =main_o_stats
+        bl      main_streq
+        cbz     w0, main_parse_valued
+        ldr     x10, =main_stats
+main_parse_flag:
+        mov     x9, 1
+        str     x9, [x10]
+        b       main_parse_next
+main_parse_valued:
+        // every remaining option takes a value
+        add     main_i_r, main_i_r, 1
+        cmp     main_i_r, main_argc_r
+        b.ge    main_parse_bad
+        ldr     x9, [main_argv_r, main_i_r, lsl 3]
+        str     x9, [sp, 32]
+        mov     x0, main_k_r
+        ldr     x1, =main_o_ticks
+        bl      main_streq
+        cbz     w0, main_parse_seed
+        ldr     x0, [sp, 32]
+        bl      main_value
+        ldr     x10, =main_ticks
+        str     x0, [x10]
+        b       main_parse_next
+main_parse_seed:
+        mov     x0, main_k_r
+        ldr     x1, =main_o_seed
+        bl      main_streq
+        cbz     w0, main_parse_flaps
+        ldr     x0, [sp, 32]
+        bl      main_value
+        ldr     x10, =main_seed
+        str     x0, [x10]
+        ldr     x10, =main_seeded
+        mov     x9, 1
+        str     x9, [x10]
+        b       main_parse_next
+main_parse_flaps:
+        mov     x0, main_k_r
+        ldr     x1, =main_o_flaps
+        bl      main_streq
+        cbz     w0, main_parse_dumps
+        ldr     x0, [sp, 32]
+        ldr     x1, =main_flaps
+        mov     x2, MAIN_FLAP_MAX
+        bl      main_list
+        ldr     x10, =main_nflaps
+        str     x0, [x10]
+        b       main_parse_next
+main_parse_dumps:
+        mov     x0, main_k_r
+        ldr     x1, =main_o_dumps
+        bl      main_streq
+        cbz     w0, main_parse_dir
+        ldr     x0, [sp, 32]
+        ldr     x1, =main_dumps
+        mov     x2, MAIN_DUMP_MAX
+        bl      main_list
+        ldr     x10, =main_ndumps
+        str     x0, [x10]
+        b       main_parse_next
+main_parse_dir:
+        mov     x0, main_k_r
+        ldr     x1, =main_o_dumpdir
+        bl      main_streq
+        cbz     w0, main_parse_size
+        ldr     x9, [sp, 32]
+        ldr     x10, =main_dumpdir
+        str     x9, [x10]
+        b       main_parse_next
+main_parse_size:
+        mov     x0, main_k_r
+        ldr     x1, =main_o_size
+        bl      main_streq
+        cbz     w0, main_parse_bad
+        // COLSxROWS
+        ldr     x0, [sp, 32]
+        bl      main_num
+        cbz     w2, main_parse_badv
+        cbz     x0, main_parse_badv
+        ldrb    w9, [x1]
+        orr     w9, w9, 32
+        cmp     w9, 120
+        b.ne    main_parse_badv
+        ldr     x10, =main_size_c
+        str     x0, [x10]
+        add     x0, x1, 1
+        bl      main_value
+        cbz     x0, main_parse_badv
+        ldr     x10, =main_size_r
+        str     x0, [x10]
+        b       main_parse_next
+main_parse_badv:
+        ldr     x0, [sp, 32]
+        bl      main_badarg
+main_parse_bad:
+        mov     x0, main_k_r
+        bl      main_badarg
+main_parse_next:
+        add     main_i_r, main_i_r, 1
+main_parse_test:
+        cmp     main_i_r, main_argc_r
+        b.lt    main_parse_loop
+        ldp     x21, x28, [sp, 16]
+        ldp     fp, lr, [sp], 48
+        ret
+
+// main_seed_sim(): seeds the game from --seed or from getrandom
+        .balign 4
+main_seed_sim:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =main_seeded
+        ldr     x9, [x9]
+        cbnz    x9, main_seed_have
+        ldr     x0, =main_seed
+        mov     x1, 8
+        mov     x2, 0
+        mov     x8, SYS_GETRANDOM
+        svc     0
+main_seed_have:
+        ldr     x9, =main_seed
+        ldr     x0, [x9]
+        bl      sim_init
+        ldp     fp, lr, [sp], 16
+        ret
+
+// main_press(x0 = tick) -> w0 = 1 when the autopilot or the flap list presses on this tick
+        .balign 4
+main_press:
+        stp     fp, lr, [sp, -32]!
+        mov     fp, sp
+        str     x19, [sp, 16]
+        str     x0, [sp, 24]
+        mov     w19, 0
+        ldr     x9, =main_auto
+        ldr     x9, [x9]
+        cbz     x9, main_press_list
+        bl      sim_autopilot
+        mov     w19, w0
+main_press_list:
+        ldr     x0, [sp, 24]
+        ldr     x9, =main_fi
+        ldr     x10, [x9]
+        ldr     x11, =main_nflaps
+        ldr     x11, [x11]
+        ldr     x12, =main_flaps
+main_press_scan:
+        cmp     x10, x11
+        b.ge    main_press_done
+        ldr     w13, [x12, x10, lsl 2]
+        cmp     x13, x0
+        b.gt    main_press_done
+        cset    w14, eq
+        orr     w19, w19, w14
+        add     x10, x10, 1
+        b       main_press_scan
+main_press_done:
+        str     x10, [x9]
+        mov     w0, w19
+        ldr     x19, [sp, 16]
+        ldp     fp, lr, [sp], 32
+        ret
+
+// main_status(x0 = tick): one headless line, "t score y vy state hash"
+        .balign 4
+main_status:
+        stp     fp, lr, [sp, -32]!
+        mov     fp, sp
+        str     x19, [sp, 16]
+        ldr     x1, =main_line
+        bl      main_fmt_dec
+        ldr     x19, =sim_s
+        mov     w9, 32
+        strb    w9, [x0], 1
+        mov     x1, x0
+        ldr     x0, [x19, SIM_SCORE]
+        bl      main_fmt_dec
+        mov     w9, 32
+        strb    w9, [x0], 1
+        mov     x1, x0
+        ldr     x0, [x19, SIM_Y]
+        bl      main_fmt_dec
+        mov     w9, 32
+        strb    w9, [x0], 1
+        mov     x1, x0
+        ldr     x0, [x19, SIM_VY]
+        bl      main_fmt_dec
+        mov     w9, 32
+        strb    w9, [x0], 1
+        mov     x1, x0
+        ldr     x0, [x19, SIM_STATE]
+        bl      main_fmt_dec
+        mov     w9, 32
+        strb    w9, [x0], 1
+        str     x0, [sp, 24]
+        bl      sim_hash
+        ldr     x1, [sp, 24]
+        bl      main_fmt_hex
+        mov     w9, 10
+        strb    w9, [x0], 1
+        mov     x2, x0
+        mov     w0, 1
+        ldr     x1, =main_line
+        bl      main_write
+        ldr     x19, [sp, 16]
+        ldp     fp, lr, [sp], 32
+        ret
+
+// main_headless(): the simulation alone, no terminal and no art
+        .balign 4
+main_headless:
+        stp     fp, lr, [sp, -32]!
+        mov     fp, sp
+        stp     x22, x28, [sp, 16]
+        bl      main_seed_sim
+        mov     main_t_r, 0
+        mov     main_k_r, 0
+        b       main_hl_test
+main_hl_loop:
+        add     main_t_r, main_t_r, 1
+        mov     x0, main_t_r
+        bl      main_press
+        bl      sim_tick
+        add     main_k_r, main_k_r, 1
+        cmp     main_k_r, MAIN_LINE_TICKS
+        b.ne    main_hl_test
+        mov     main_k_r, 0
+        mov     x0, main_t_r
+        bl      main_status
+        // the sleep changes nothing printed; it keeps the playground's step budget topped up
+        ldr     x0, =MAIN_MS
+        bl      tty_sleep
+main_hl_test:
+        ldr     x9, =main_ticks
+        ldr     x9, [x9]
+        cmp     main_t_r, x9
+        b.lt    main_hl_loop
+        // END t score hash
+        ldr     x0, =main_line
+        ldr     x1, =main_s_end
+        bl      main_cpy
+        mov     x1, x0
+        mov     x0, main_t_r
+        bl      main_fmt_dec
+        mov     w9, 32
+        strb    w9, [x0], 1
+        mov     x1, x0
+        ldr     x9, =sim_s
+        ldr     x0, [x9, SIM_SCORE]
+        bl      main_fmt_dec
+        mov     w9, 32
+        strb    w9, [x0], 1
+        str     x0, [sp, 24]
+        bl      sim_hash
+        ldr     x1, [sp, 24]
+        bl      main_fmt_hex
+        mov     w9, 10
+        strb    w9, [x0], 1
+        mov     x2, x0
+        mov     w0, 1
+        ldr     x1, =main_line
+        bl      main_write
+        ldp     x22, x28, [sp, 16]
+        ldp     fp, lr, [sp], 32
+        ret
+
+// main_dump(x0 = tick): writes the composed frame as dir/tick.ppm when the list asks for it
+        .balign 4
+main_dump:
+        stp     fp, lr, [sp, -32]!
+        mov     fp, sp
+        str     x19, [sp, 16]
+        mov     x19, x0
+        ldr     x9, =main_di
+        ldr     x10, [x9]
+        ldr     x11, =main_ndumps
+        ldr     x11, [x11]
+        ldr     x12, =main_dumps
+main_dump_skip:
+        cmp     x10, x11
+        b.ge    main_dump_done
+        ldr     w13, [x12, x10, lsl 2]
+        cmp     x13, x19
+        b.gt    main_dump_done
+        add     x10, x10, 1
+        str     x10, [x9]
+        b.ne    main_dump_skip
+        ldr     x1, =main_path
+        ldr     x9, =main_dumpdir
+        ldr     x9, [x9]
+        cbz     x9, main_dump_name
+main_dump_dir:
+        ldrb    w10, [x9], 1
+        cbz     w10, main_dump_slash
+        strb    w10, [x1], 1
+        b       main_dump_dir
+main_dump_slash:
+        mov     w10, 47
+        strb    w10, [x1], 1
+main_dump_name:
+        mov     x0, x19
+        bl      main_fmt_dec
+        ldr     x1, =main_s_ppm
+        bl      main_cpy
+        strb    wzr, [x0]
+        ldr     x0, =main_path
+        ldr     x1, =main_back
+        ldr     x1, [x1]
+        ldr     x2, =gfx_stride
+        ldr     x2, [x2]
+        ldr     x3, =art_palette
+        bl      save_ppm
+main_dump_done:
+        ldr     x19, [sp, 16]
+        ldp     fp, lr, [sp], 32
+        ret
+
+// main_draw(x0 = tick): compose, present, dump if asked, then swap the display buffers
+        .balign 4
+main_draw:
+        stp     fp, lr, [sp, -32]!
+        mov     fp, sp
+        str     x19, [sp, 16]
+        mov     x19, x0
+        ldr     x9, =main_back
+        ldr     x0, [x9]
+        bl      gfx_frame
+        ldr     x9, =main_back
+        ldr     x0, [x9]
+        ldr     x1, =gfx_stride
+        ldr     x1, [x1]
+        ldr     x2, =art_palette
+        ldr     x9, =main_palnew
+        ldr     w3, [x9]
+        str     xzr, [x9]
+        bl      present_frame
+        mov     x0, x19
+        bl      main_dump
+        ldr     x9, =main_frames
+        ldr     x10, [x9]
+        add     x10, x10, 1
+        str     x10, [x9]
+        ldr     x9, =main_back
+        ldr     x10, [x9]
+        ldr     x11, =main_front
+        ldr     x12, [x11]
+        str     x12, [x9]
+        str     x10, [x11]
+        ldr     x19, [sp, 16]
+        ldp     fp, lr, [sp], 32
+        ret
+
+// main_buffers(): the two display buffers and a first-frame palette upload
+        .balign 4
+main_buffers:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =main_back
+        ldr     x10, =main_bufa
+        str     x10, [x9]
+        ldr     x9, =main_front
+        ldr     x10, =main_bufb
+        str     x10, [x9]
+        ldr     x9, =main_palnew
+        mov     x10, 1
+        str     x10, [x9]
+        ldp     fp, lr, [sp], 16
+        ret
+
+// main_render(): the full game with rendering into stdout, no terminal and no sleeping
+        .balign 4
+main_render:
+        stp     fp, lr, [sp, -32]!
+        mov     fp, sp
+        stp     x22, x28, [sp, 16]
+        mov     x0, AT_FDCWD
+        ldr     x1, =main_s_idx
+        mov     x2, MAIN_IDX_FLAGS
+        mov     x3, MAIN_IDX_MODE
+        mov     x8, SYS_OPENAT
+        svc     0
+        ldr     x9, =main_idxfd
+        str     x0, [x9]
+        bl      main_seed_sim
+        mov     x0, LOG_W
+        mov     x1, LOG_H
+        bl      present_open
+        cbz     w0, main_render_small
+        bl      gfx_setup
+        bl      main_buffers
+        mov     main_t_r, 0
+        b       main_render_test
+main_render_loop:
+        add     main_t_r, main_t_r, 1
+        mov     x0, main_t_r
+        bl      main_press
+        bl      sim_tick
+        ldr     x9, =main_lite
+        ldr     x9, [x9]
+        cbz     x9, main_render_draw
+        tbnz    main_t_r, 0, main_render_idx
+main_render_draw:
+        mov     x0, main_t_r
+        bl      main_draw
+main_render_idx:
+        // one line per tick: the tick and the stream offset after it
+        mov     x0, main_t_r
+        ldr     x1, =main_line
+        bl      main_fmt_dec
+        mov     w9, 32
+        strb    w9, [x0], 1
+        mov     x1, x0
+        ldr     x9, =term_total
+        ldr     x0, [x9]
+        bl      main_fmt_dec
+        mov     w9, 10
+        strb    w9, [x0], 1
+        mov     x2, x0
+        ldr     x9, =main_idxfd
+        ldr     w0, [x9]
+        ldr     x1, =main_line
+        bl      main_write
+main_render_test:
+        ldr     x9, =main_ticks
+        ldr     x9, [x9]
+        cmp     main_t_r, x9
+        b.lt    main_render_loop
+        bl      present_close
+        ldr     x9, =main_idxfd
+        ldr     x0, [x9]
+        mov     x8, SYS_CLOSE
+        svc     0
+        ldp     x22, x28, [sp, 16]
+        ldp     fp, lr, [sp], 32
+        ret
+main_render_small:
+        mov     w0, 2
+        ldr     x1, =main_e_small
+        mov     x2, MAIN_E_SMALL_LEN
+        bl      tty_write_all
+        mov     w0, 2
+        bl      main_exit
+
+// main_resize(): every 30 ticks, a new terminal size means a new layout and maybe a new scale
+        .balign 4
+main_resize:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =main_size_c
+        ldr     x9, [x9]
+        cbnz    x9, main_resize_done
+        bl      tty_size
+        ldr     x9, =main_lastc
+        ldr     x10, [x9]
+        ldr     x11, =main_lastr
+        ldr     x12, [x11]
+        cmp     x10, x0
+        b.ne    main_resize_new
+        cmp     x12, x1
+        b.eq    main_resize_done
+main_resize_new:
+        str     x0, [x9]
+        str     x1, [x11]
+        mov     x0, LOG_W
+        mov     x1, LOG_H
+        bl      present_open
+        ldr     x9, =main_scale
+        str     x0, [x9]
+        cbz     w0, main_resize_done
+        bl      gfx_setup
+        bl      main_buffers
+main_resize_done:
+        ldp     fp, lr, [sp], 16
+        ret
+
+// main_stats_line(): frames ticks dropped elapsed_ns on stderr
+        .balign 4
+main_stats_line:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x1, =main_line
+        ldr     x9, =main_frames
+        ldr     x0, [x9]
+        bl      main_fmt_dec
+        mov     w9, 32
+        strb    w9, [x0], 1
+        mov     x1, x0
+        ldr     x9, =main_simticks
+        ldr     x0, [x9]
+        bl      main_fmt_dec
+        mov     w9, 32
+        strb    w9, [x0], 1
+        mov     x1, x0
+        ldr     x9, =main_dropped
+        ldr     x0, [x9]
+        bl      main_fmt_dec
+        mov     w9, 32
+        strb    w9, [x0], 1
+        str     x0, [sp, -16]!
+        bl      main_clock
+        ldr     x9, =main_start
+        ldr     x9, [x9]
+        sub     x0, x0, x9
+        ldr     x1, [sp], 16
+        bl      main_fmt_dec
+        mov     w9, 10
+        strb    w9, [x0], 1
+        mov     x2, x0
+        mov     w0, 2
+        ldr     x1, =main_line
+        bl      main_write
+        ldp     fp, lr, [sp], 16
+        ret
+
+// main_play(): the interactive game, paced to 60 ticks a second by deadline
+        .balign 4
+main_play:
+        stp     fp, lr, [sp, -80]!
+        mov     fp, sp
+        stp     x21, x22, [sp, 16]
+        stp     x23, x24, [sp, 32]
+        stp     x25, x26, [sp, 48]
+        stp     x27, x28, [sp, 64]
+        bl      tty_open
+        cbz     w0, main_play_tty
+        mov     w0, 2
+        ldr     x1, =main_e_tty
+        mov     x2, MAIN_E_TTY_LEN
+        bl      tty_write_all
+        mov     w0, 2
+        bl      main_exit
+main_play_tty:
+        // an unknown size with a working terminal is what the playground looks like
+        bl      tty_size
+        ldr     x9, =main_lastc
+        str     x0, [x9]
+        ldr     x9, =main_lastr
+        str     x1, [x9]
+        cbnz    w0, main_play_seed
+        ldr     x9, =main_lite
+        mov     x10, 1
+        str     x10, [x9]
+main_play_seed:
+        bl      main_seed_sim
+        mov     x0, LOG_W
+        mov     x1, LOG_H
+        bl      present_open
+        ldr     x9, =main_scale
+        str     x0, [x9]
+        cbz     w0, main_play_clock
+        bl      gfx_setup
+        bl      main_buffers
+main_play_clock:
+        bl      main_clock
+        ldr     x9, =main_start
+        str     x0, [x9]
+        mov     main_next_r, x0
+        mov     main_phase_r, 0
+        mov     main_t_r, 0
+        mov     main_since_r, 0
+        mov     main_k_r, 0
+main_play_loop:
+        mov     x0, main_t_r
+        bl      tty_poll
+        ldr     x9, =tty_quit
+        ldr     x9, [x9]
+        cbnz    x9, main_play_end
+        bl      main_clock
+        mov     main_now_r, x0
+        mov     main_ran_r, 0
+main_play_tick:
+        cmp     main_now_r, main_next_r
+        b.lt    main_play_late
+        cmp     main_ran_r, MAIN_CATCHUP
+        b.ge    main_play_late
+        add     main_t_r, main_t_r, 1
+        ldr     x9, =main_scale
+        ldr     x9, [x9]
+        cbz     x9, main_play_paced
+        ldr     x9, =tty_pause
+        ldr     x9, [x9]
+        tbnz    x9, 0, main_play_paced
+        // each tick takes at most one queued flap, so two fast taps fly on two ticks
+        mov     w0, 0
+        ldr     x9, =tty_flaps
+        ldr     x10, [x9]
+        cbz     x10, main_play_auto
+        sub     x10, x10, 1
+        str     x10, [x9]
+        mov     w0, 1
+main_play_auto:
+        str     x0, [sp, -16]!
+        ldr     x9, =main_auto
+        ldr     x9, [x9]
+        cbz     x9, main_play_sim
+        bl      sim_autopilot
+        ldr     x1, [sp]
+        orr     w0, w0, w1
+        str     x0, [sp]
+main_play_sim:
+        ldr     x0, [sp], 16
+        bl      sim_tick
+        ldr     x9, =main_simticks
+        ldr     x10, [x9]
+        add     x10, x10, 1
+        str     x10, [x9]
+        add     main_since_r, main_since_r, 1
+main_play_paced:
+        add     main_k_r, main_k_r, 1
+        cmp     main_k_r, MAIN_RESIZE
+        b.ne    main_play_period
+        mov     main_k_r, 0
+        bl      main_resize
+main_play_period:
+        // two periods of 16666667 ns and one of 16666666 make exactly 50 ms per three ticks
+        ldr     x9, =MAIN_PERIOD
+        cmp     main_phase_r, 2
+        b.ne    main_play_add
+        ldr     x9, =MAIN_PERIOD3
+main_play_add:
+        add     main_next_r, main_next_r, x9
+        add     main_phase_r, main_phase_r, 1
+        cmp     main_phase_r, 3
+        csel    main_phase_r, main_phase_r, xzr, lt
+        add     main_ran_r, main_ran_r, 1
+        b       main_play_tick
+main_play_late:
+        // too far behind: drop the backlog instead of fast-forwarding the game
+        cmp     main_now_r, main_next_r
+        b.lt    main_play_draw
+        ldr     x9, =MAIN_PERIOD
+        add     main_next_r, main_next_r, x9
+        ldr     x10, =main_dropped
+        ldr     x11, [x10]
+        add     x11, x11, 1
+        str     x11, [x10]
+        b       main_play_late
+main_play_draw:
+        cbz     main_since_r, main_play_sleep
+        ldr     x9, =main_scale
+        ldr     x9, [x9]
+        cbz     x9, main_play_sleep
+        ldr     x9, =main_lite
+        ldr     x9, [x9]
+        cbz     x9, main_play_render
+        cmp     main_since_r, 2
+        b.lt    main_play_sleep
+main_play_render:
+        mov     main_since_r, 0
+        mov     x0, main_t_r
+        bl      main_draw
+main_play_sleep:
+        bl      main_clock
+        subs    x0, main_next_r, x0
+        b.le    main_play_loop
+        bl      tty_sleep
+        b       main_play_loop
+main_play_end:
+        bl      present_close
+        bl      tty_close
+        ldr     x9, =main_stats
+        ldr     x9, [x9]
+        cbz     x9, main_play_done
+        bl      main_stats_line
+main_play_done:
+        ldp     x21, x22, [sp, 16]
+        ldp     x23, x24, [sp, 32]
+        ldp     x25, x26, [sp, 48]
+        ldp     x27, x28, [sp, 64]
+        ldp     fp, lr, [sp], 80
+        ret
+
+// main(w0 = argc, x1 = argv) -> w0 = exit status
+        .balign 4
+        .global main
+main:
+        stp     fp, lr, [sp, -32]!
+        mov     fp, sp
+        stp     x19, x20, [sp, 16]
+        sxtw    main_argc_r, w0
+        mov     main_argv_r, x1
+        bl      main_parse
+        ldr     x9, =main_mode
+        ldr     x9, [x9]
+        cmp     x9, MAIN_HEADLESS
+        b.ne    main_not_headless
+        bl      main_headless
+        b       main_done
+main_not_headless:
+        cmp     x9, MAIN_RENDER
+        b.ne    main_interactive
+        bl      main_render
+        b       main_done
+main_interactive:
+        bl      main_play
+main_done:
+        mov     w0, 0
+        bl      main_exit
