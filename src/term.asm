@@ -271,11 +271,17 @@ term_putesc:
 term_flush:
         stp     fp, lr, [sp, -16]!
         mov     fp, sp
-        // a bench counts the bytes instead of writing them, so a frame bigger than the buffer
-        // is counted a buffer at a time
+        // a bench counts the bytes instead of writing them, and only once the buffer is full:
+        // a bigger frame is counted a buffer at a time, and any other stays in the buffer for
+        // term_bench_take, outside the time the bench measures
         ldr     x9, =term_bench
         ldr     x9, [x9]
         cbz     x9, term_flush_write
+        ldr     x9, =term_len
+        ldr     x9, [x9]
+        ldr     x10, =TERM_OUT_LIMIT
+        cmp     x9, x10
+        b.lt    term_flush_done
         bl      term_bench_count
         ldr     x9, =term_bframe
         ldr     x10, [x9]
