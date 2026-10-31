@@ -1103,7 +1103,8 @@ term_pf_bnext:
         add     term_col_r, term_col_r, TERM_BLOCK
         cmp     term_col_r, term_rdw_r
         b.lt    term_pf_block
-        // the next row and the next frame start from where this row left the cursor
+        // where this row left the cursor; the next frame starts from it when its first
+        // changed cell is in this same row
         cmp     term_curc_r, TERM_FAR
         b.eq    term_pf_breath
         ldr     x9, [sp, present_frame_ox]
