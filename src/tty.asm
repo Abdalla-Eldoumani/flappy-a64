@@ -103,9 +103,10 @@ tty_open:
         tbnz    x0, 63, tty_open_fail
         ldr     x9, =tty_orig
         // the playground's TCGETS writes the four flag words and zeroes the rest, so every
-        // control character reads 0, which Linux takes as switched off; a real terminal starts
-        // with Ctrl-C, Ctrl-D, DEL and the others in place and VMIN 1, and would match only if
-        // each were switched off by hand. Its size cannot tell: the playground may report one.
+        // control character reads 0; a real terminal starts with Ctrl-C, Ctrl-D, DEL and the
+        // others in place and VMIN 1. Its size cannot tell: the playground may report one.
+        // shortcut: a terminal with every control character switched off by hand gets lite too;
+        // revisit if the playground's TCGETS ever reports control characters
         ldp     x10, x11, [x9, TTY_CC]
         ldr     w12, [x9, TTY_CC_TAIL]
         orr     x10, x10, x11
