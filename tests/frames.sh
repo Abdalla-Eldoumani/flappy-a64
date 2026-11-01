@@ -6,6 +6,13 @@
 set -u
 mkdir -p frames
 bad=0
+# the player's best score is put aside for the moments and put back at the end
+if [ -e .flappy_best ]; then mv .flappy_best frames-best.real; fi
+finish() {
+  rm -f .flappy_best
+  if [ -e frames-best.real ]; then mv frames-best.real .flappy_best; fi
+}
+trap finish EXIT
 moments="
 title_s1 1 20 144x128 42
 title_s2 1 20 72x64 42
@@ -57,6 +64,5 @@ while read -r name seed tick size best; do
 done <<< "$moments"
 if [ ${#row[@]} -gt 0 ]; then pnmcat -lr -jtop -white "${row[@]}" > "frames/row${#sheet[@]}.ppm"; sheet+=("frames/row${#sheet[@]}.ppm"); fi
 pnmcat -tb -jleft -white "${sheet[@]}" | pnmtopng > frames/sheet.png
-: > .flappy_best
 echo "frames/sheet.png"
 exit $bad
