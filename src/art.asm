@@ -179,15 +179,15 @@ art_bird3:
         .balign 4
         .global art_bird4
 art_bird4:
-        .ascii  "4156."
-        .ascii  "41177"
-        .ascii  ".033."
-        .ascii  "1156."
-        .ascii  "44177"
-        .ascii  ".033."
-        .ascii  "1156."
-        .ascii  "11177"
-        .ascii  "4433."
+        .ascii  ".400."
+        .ascii  "01157"
+        .ascii  ".000."
+        .ascii  ".000."
+        .ascii  "41157"
+        .ascii  ".000."
+        .ascii  ".000."
+        .ascii  "01157"
+        .ascii  ".400."
 // pipe cap, 26 x 12, the same art above and below the gap
         .balign 4
         .global art_cap
