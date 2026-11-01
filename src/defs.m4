@@ -49,6 +49,9 @@ O_WRONLY = 1
 O_CREAT = 64
 O_TRUNC = 512
 O_NONBLOCK = 0x800
+// a file written whole each time: created when missing, emptied when there, mode rw-r--r--
+FILE_NEW = O_WRONLY + O_CREAT + O_TRUNC
+FILE_MODE = 420
 F_GETFL = 3
 F_SETFL = 4
 CLOCK_MONOTONIC = 1
