@@ -325,7 +325,7 @@ main_clock:
         svc     0
         ldr     x9, =main_ts
         ldp     x10, x11, [x9]
-        ldr     x12, =1000000000
+        ldr     x12, =MAIN_SECOND
         madd    x0, x10, x12, x11
         ldp     fp, lr, [sp], 16
         ret
