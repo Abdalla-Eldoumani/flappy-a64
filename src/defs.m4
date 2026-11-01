@@ -13,15 +13,15 @@
 //                 text bitmap, debug overlay                     8704
 //                 division table, sprites, digits, tables        6344
 //           term  output buffer                                131072
-//                 colour strings 2 x 64 x 24, decimals, state    7280
+//                 colour strings 2 x 64 x 24, decimals, state    7256
 //           art   palette, legend map                             392
 //           sim   state 26 x 8, masks 36 x 4                      352
 //           tty   termios x 2, input buffer, decoder              304
-//           save  ppm row buffer, header, best score              592
-//                 total                                        418368
-//   .rodata art   palettes, sprites, fonts, UI words             8744
-//           rest  messages and tables                             863
-//                 total                                          9607
+//           save  ppm row buffer, header, best score              512
+//                 total                                        418264
+//   .rodata art   palettes, sprites, fonts, UI words             8764
+//           rest  messages and tables                             940
+//                 total                                          9704
 
 define(fp, x29)
 define(lr, x30)
