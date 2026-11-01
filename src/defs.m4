@@ -260,3 +260,9 @@ TERM_OUT_SIZE = 131072
 // a first cell of at most 49 bytes, 143 more of at most 45, and 16 that word stores write past
 // the end, under 6.5 KB
 TERM_OUT_SLACK = 8192
+// where the bench adds up each kind of byte in term_bsplit, which main prints per frame
+TERM_SPLIT_CURSOR = 0
+TERM_SPLIT_COLOUR = 8
+TERM_SPLIT_GLYPH = 16
+TERM_SPLIT_OTHER = 24
+TERM_SPLIT_BYTES = TERM_SPLIT_OTHER + 8
