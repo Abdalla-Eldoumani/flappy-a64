@@ -41,10 +41,12 @@ status() { awk '$1 == "status" { print $2; f = 1 } END { if (!f) print "none" }'
 # how many capture bytes had arrived when the key at time T went in
 keyat() { awk -v t="$2" '$1 == "key" && $2 == t { print $3 }' <<< "$1"; }
 
-# a check on a capture, in python: ends: it ends with the restore sequence; whole: every frame
-# that opened synchronized output closed it, and nothing was cut (no CAN); recover: a frame was
-# cut, CAN and ESC[0m follow, and the next frame clears the screen and paints every cell of
-# COLSxROWS; has: it holds the bytes HEX; after: the restore starts at or after byte N
+# a check on a capture, in python: ends: it ends with the restore sequence; ends-lite: with the
+# restore and OSC 104; whole: every frame that opened synchronized output closed it, and nothing
+# was cut (no CAN); recover: a frame was cut, CAN and ESC[0m follow, and the next frame clears
+# the screen and paints every cell of COLSxROWS; palette: that next frame opens with one OSC 4
+# that sets every slot of the lite palette, indexes 16 to 79, before any cell; has: it holds the
+# bytes HEX; after: the restore starts at or after byte N
 cap() {
   python3 - "$@" <<'EOF'
 import re, sys
@@ -55,6 +57,8 @@ on, off = b"\x1b[?2026h", b"\x1b[?2026l"
 ok = False
 if what == "ends":
     ok = d.endswith(r)
+elif what == "ends-lite":
+    ok = d.endswith(r + b"\x1b]104\x1b\\")
 elif what == "whole":
     ok = d.count(on) == d.count(off) > 0 and b"\x18" not in d
 elif what == "recover":
@@ -67,6 +71,12 @@ elif what == "recover":
         text = re.sub(rb"\x1b\[[0-9;?]*[@-~]", b"", frame)
         cells = text.count(b" ") + text.count(b"\xe2\x96")
         ok = b"\x1b[2J" in frame and cells >= cols * rows
+elif what == "palette":
+    i = d.find(b"\x18")
+    j = i + 5 + len(on)
+    if i > 0 and d[i:j] == b"\x18\x1b[0m" + on and d.startswith(b"\x1b]4;", j):
+        slots = re.findall(rb";(\d+);rgb:", d[j:d.find(b"\x1b\\", j)])
+        ok = sorted(int(n) for n in slots) == list(range(16, 80))
 elif what == "has":
     ok = bytes.fromhex(sys.argv[3]) in d
 elif what == "after":
@@ -102,6 +112,16 @@ cap ends harden-stall.out || fail "no restore at the end"
 cap recover harden-stall.out 48x43 || fail "no CAN with a full repaint after the stall"
 painted stall 48 43 || fail "cells left unpainted"
 report "stalled terminal: a frame cut, then CAN, ESC[0m and a full repaint, clean end"
+# the same stall in the lite profile: what palette the terminal holds is no longer known either,
+# so the frame after the cut sends every slot before any cell
+r=$(run stall-lite --size 48x43 --deadline 60 --stall 2.0:8 \
+  --key 1.0:20 --key 13.0:71 -- "${RUNNER[@]}" ./flappy --autopilot --seed 3 --lite)
+s=$(status "$r")
+[ "$s" = 0 ] || fail "status $s"
+cap ends-lite harden-stall-lite.out || fail "no restore and OSC 104 at the end"
+cap recover harden-stall-lite.out 48x43 || fail "no CAN with a full repaint after the stall"
+cap palette harden-stall-lite.out || fail "the frame after the cut does not open with the whole palette"
+report "lite, stalled terminal: a frame cut, then CAN, ESC[0m, every slot in one OSC 4 and a full repaint, clean end"
 
 # the terminal closes: with SIGHUP ignored, the next write returns EIO and the game exits 0
 # without a word; with SIGHUP as it comes, the signal ends it first
