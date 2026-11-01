@@ -38,6 +38,7 @@ TERM_MS = 1000000
 // ESC and the first final byte of a sequence, which the bench sorts by, and the three finals the
 // encoder writes; ESC [ goes out as one halfword
 TERM_ESC = 27
+TERM_BRACKET = 91
 TERM_FINAL = 64
 TERM_FINAL_CUP = 72
 TERM_FINAL_CUF = 67
@@ -64,44 +65,44 @@ TERM_GEO_MIN_ROWS = TERM_GEO_MIN + 6
 
         .section .rodata
 term_s_setup:
-        .byte   27
+        .byte   TERM_ESC
         .ascii  "[?1049h"
-        .byte   27
+        .byte   TERM_ESC
         .ascii  "[?25l"
-        .byte   27
+        .byte   TERM_ESC
         .ascii  "[?7l"
-        .byte   27
+        .byte   TERM_ESC
         .ascii  "[?1000h"
-        .byte   27
+        .byte   TERM_ESC
         .ascii  "[?1006h"
 term_s_setup_end:
 term_s_restore:
-        .byte   27
+        .byte   TERM_ESC
         .ascii  "[?1006l"
-        .byte   27
+        .byte   TERM_ESC
         .ascii  "[?1000l"
-        .byte   27
+        .byte   TERM_ESC
         .ascii  "[?7h"
-        .byte   27
+        .byte   TERM_ESC
         .ascii  "[?25h"
-        .byte   27
+        .byte   TERM_ESC
         .ascii  "[?1049l"
-        .byte   27
+        .byte   TERM_ESC
         .ascii  "[0m"
 term_s_restore_end:
 term_s_sync_on:
-        .byte   27
+        .byte   TERM_ESC
         .ascii  "[?2026h"
 term_s_sync_off:
-        .byte   27
+        .byte   TERM_ESC
         .ascii  "[?2026l"
 term_s_reset:
-        .byte   27
+        .byte   TERM_ESC
         .ascii  "[0m"
 term_s_clear:
-        .byte   27
+        .byte   TERM_ESC
         .ascii  "[2J"
-        .byte   27
+        .byte   TERM_ESC
         .ascii  "[1;1H"
 term_s_clear_end:
 // space, full block, upper half, lower half, indexed by glyph: the space is one byte and each
@@ -247,9 +248,9 @@ term_putrec:
 term_putesc:
         stp     fp, lr, [sp, -16]!
         mov     fp, sp
-        mov     w0, 27
+        mov     w0, TERM_ESC
         bl      term_putc
-        mov     w0, 91
+        mov     w0, TERM_BRACKET
         bl      term_putc
         ldp     fp, lr, [sp], 16
         ret
