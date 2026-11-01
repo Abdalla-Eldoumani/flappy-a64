@@ -1403,9 +1403,10 @@ gfx_frame:
 gfx_frame_pipe:
         ldr     x9, =sim_s
         add     x9, x9, SIM_PIPEX
-        add     x9, x9, gfx_fa_r, lsl 4
+        mov     x10, SIM_PIPE_REC
+        madd    x9, gfx_fa_r, x10, x9
         ldr     x1, [x9]
-        ldr     x2, [x9, 8]
+        ldr     x2, [x9, SIM_PIPE_GAP]
         cmp     x1, LOG_W
         b.ge    gfx_frame_pnext
         cmn     x1, SIM_PIPE_CAP_W
