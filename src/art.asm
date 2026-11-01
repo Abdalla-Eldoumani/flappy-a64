@@ -433,13 +433,14 @@ art_medal2:
         .ascii  "03222230"
         .ascii  ".033330."
         .ascii  "..0000.."
+// shaded corner to corner: a light centre with darker sides would form a plus
         .balign 4
         .global art_medal3
 art_medal3:
         .ascii  ".000."
-        .ascii  "03230"
-        .ascii  "02120"
-        .ascii  "03230"
+        .ascii  "01120"
+        .ascii  "01230"
+        .ascii  "02330"
         .ascii  ".000."
 // sparkles over the medal: 5, 3 and 1 square
         .balign 4
