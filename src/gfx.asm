@@ -198,7 +198,6 @@ GFX_UI_BYTES = 16384
 GFX_WBITS = 4096
 // an outlined word is its bitmap plus a one-pixel ring; gfx_word refuses one that would not fit
 GFX_WORD_MAX = GFX_WBITS + 512
-GFX_UI_ROOM = GFX_UI_BYTES - GFX_WORD_MAX
 // a small digit is one glyph of the larger font with its outline
 GFX_SDIGIT_BYTES = (ART_F5_W + 2) * (ART_F5_H + 2)
 GFX_SDIGITS_BYTES = GFX_SDIGIT_BYTES * GFX_DIGITS
@@ -1706,9 +1705,6 @@ gfx_bake_ui_word:
         str     xzr, [gfx_ut_r, GFX_UITAB_H]
         ldrb    w9, [gfx_us_r]
         cbz     w9, gfx_bake_ui_end
-        ldr     x9, =GFX_UI_ROOM
-        cmp     gfx_uo_r, x9
-        b.hi    gfx_bake_ui_end
         str     gfx_uo_r, [gfx_ut_r, GFX_UITAB_OFF]
         mov     x0, gfx_us_r
         ldrb    w1, [gfx_uy_r]
