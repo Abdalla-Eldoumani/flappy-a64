@@ -1162,13 +1162,13 @@ main_bench_test:
         ret
 
 // main_render(): the full game with rendering into stdout, no terminal and no sleeping
-main_render_alloc = -(16 + 16) & -16
+main_render_alloc = -(16 + 8) & -16
 main_render_dealloc = 0 - main_render_alloc
         .balign 4
 main_render:
         stp     fp, lr, [sp, main_render_alloc]!
         mov     fp, sp
-        stp     x22, x28, [sp, 16]
+        str     x22, [sp, 16]
         mov     x0, AT_FDCWD
         ldr     x1, =main_s_idx
         mov     x2, FILE_NEW
@@ -1230,7 +1230,7 @@ main_render_test:
         ldr     x0, [x9]
         mov     x8, SYS_CLOSE
         svc     0
-        ldp     x22, x28, [sp, 16]
+        ldr     x22, [sp, 16]
         ldp     fp, lr, [sp], main_render_dealloc
         ret
 
