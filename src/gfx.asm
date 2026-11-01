@@ -188,6 +188,10 @@ GFX_E_NEW = 10
 GFX_E_PAUSED = 11
 GFX_E_ZOOM = 12
 GFX_UI_STRINGS = ART_UI_WORDS * 4
+// a gfx_uitab record: where the baked word starts in gfx_ui, then its width and height
+GFX_UITAB_OFF = 0
+GFX_UITAB_W = 8
+GFX_UITAB_H = 16
 GFX_UITAB_REC = 24
 GFX_UITAB_BYTES = ART_UI_WORDS * GFX_UITAB_REC
 GFX_UI_BYTES = 16384
@@ -1698,14 +1702,14 @@ gfx_bake_ui_word:
         ldr     x10, [x10]
         cmp     x9, x10
         b.ne    gfx_bake_ui_end
-        str     xzr, [gfx_ut_r, 8]
-        str     xzr, [gfx_ut_r, 16]
+        str     xzr, [gfx_ut_r, GFX_UITAB_W]
+        str     xzr, [gfx_ut_r, GFX_UITAB_H]
         ldrb    w9, [gfx_us_r]
         cbz     w9, gfx_bake_ui_end
         ldr     x9, =GFX_UI_ROOM
         cmp     gfx_uo_r, x9
         b.hi    gfx_bake_ui_end
-        str     gfx_uo_r, [gfx_ut_r]
+        str     gfx_uo_r, [gfx_ut_r, GFX_UITAB_OFF]
         mov     x0, gfx_us_r
         ldrb    w1, [gfx_uy_r]
         ldrb    w2, [gfx_uy_r, 1]
@@ -1716,8 +1720,8 @@ gfx_bake_ui_word:
         ldr     x6, =GFX_UI_BYTES
         sub     x6, x6, gfx_uo_r
         bl      gfx_word
-        str     x0, [gfx_ut_r, 8]
-        str     x1, [gfx_ut_r, 16]
+        str     x0, [gfx_ut_r, GFX_UITAB_W]
+        str     x1, [gfx_ut_r, GFX_UITAB_H]
         madd    gfx_uo_r, x0, x1, gfx_uo_r
 gfx_bake_ui_end:
         ldrb    w9, [gfx_us_r], 1
@@ -1848,7 +1852,7 @@ gfx_ui_w:
         ldr     x9, =gfx_uitab
         mov     x10, GFX_UITAB_REC
         madd    x9, x0, x10, x9
-        ldr     x0, [x9, 8]
+        ldr     x0, [x9, GFX_UITAB_W]
         ldp     fp, lr, [sp], 16
         ret
 
@@ -1863,10 +1867,10 @@ gfx_ui_put:
         ldr     x9, =gfx_uitab
         mov     x10, GFX_UITAB_REC
         madd    x9, x1, x10, x9
-        ldr     gfx_pw_r, [x9, 8]
-        ldr     gfx_ph_r, [x9, 16]
+        ldr     gfx_pw_r, [x9, GFX_UITAB_W]
+        ldr     gfx_ph_r, [x9, GFX_UITAB_H]
         cbz     gfx_pw_r, gfx_ui_put_done
-        ldr     x10, [x9]
+        ldr     x10, [x9, GFX_UITAB_OFF]
         ldr     x1, =gfx_ui
         add     x1, x1, x10
         mov     x4, x2
