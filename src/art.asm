@@ -305,7 +305,8 @@ art_big:
         .ascii  "++++++/++++++/....++/...+++/..+++./..++../.+++../.++.../.++.../.++..."
         .ascii  ".++++./++++++/++..++/++..++/.++++./++++++/++..++/++..++/++++++/.++++."
         .ascii  ".++++./++++++/++..++/++..++/++++++/.+++++/....++/....++/++++++/.++++."
-// 5 x 7 font: A to Z, 0 to 9, then . : - ! ? /
+// 5 x 7 font: A to Z, 0 to 9, then . : - ! ? / and ^, the flap hint: a triangle with no shaft,
+// since a shaft under a small head reads as a cross
         .balign 4
         .global art_font5
 art_font5:
@@ -351,7 +352,7 @@ art_font5:
         .ascii  "..+../..+../..+../..+../..+../...../..+.."
         .ascii  ".+++./+...+/....+/...+./..+../...../..+.."
         .ascii  "....+/....+/...+./..+../.+.../+..../+...."
-        .ascii  "..+../.+++./+++++/..+../..+../..+../....."
+        .ascii  "..+../.+++./+++++/...../...../...../....."
 // 3 x 5 font for scales 2 to 4, same order
         .balign 4
         .global art_font3
@@ -398,7 +399,7 @@ art_font3:
         .ascii  ".+./.+./.+./.../.+."
         .ascii  "++./..+/.+./.../.+."
         .ascii  "..+/..+/.+./+../+.."
-        .ascii  ".+./+++/.+./.+./..."
+        .ascii  ".+./+++/.../.../..."
 // the symbols after the digits, in glyph order
 art_symbols:
         .asciz  ".:-!?/^"
