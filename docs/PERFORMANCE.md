@@ -80,15 +80,15 @@ Checking the skipped cells costs steps, so it waited for the cheaper block test 
 | s = 1 full profile under 24 KB a frame on average in play | 16,577 bytes (B1) | yes |
 | Nothing written on unchanged frames | 0 bytes, the minimum B1 and B3 report; a frame that changes no cell and no palette slot takes back its synchronized-output code | yes |
 | CPU per rendered frame under 0.5 ms | 23.64 us of wall time at s = 1 (N, measured again on the current code), which bounds the CPU time | yes |
-| Playground steps under 90% of the refill | 857,727 steps/s, 85.8% (E) | yes |
-| Playground bytes under 90% of the refill | 78,854 B/s, 78.9% (E) | yes |
-| No second of playground output over the refill | 89,494 bytes in the busiest second (E) | yes |
-| No stretch between sleeps near the 1,000,000-step stop | 174,715 steps at most, during set-up; no chunk at the stop (E) | yes |
+| Playground steps under 90% of the refill | 857,538 steps/s, 85.8% (E) | yes |
+| Playground bytes under 90% of the refill | 78,846 B/s, 78.8% (E) | yes |
+| No second of playground output over the refill | 89,494 bytes in the busiest second (E); 90,122 at 144x128 | yes |
+| No stretch between sleeps near the 1,000,000-step stop | 174,701 steps at most, during set-up; no chunk at the stop (E) | yes |
 
 The bytes now stay under the refill, and still the output wall ends the session in today's
 playground. The full check, `make envelope` (up to 15 minutes of virtual time), ran 102.0 s
-before the playground stopped the game for printing too much, after 7,422,947 bytes, at
-820,788 steps and 72,800 bytes a second. In 24-bit colour it stopped at 68.9 s, at 118,315
+before the playground stopped the game for printing too much, after 7,422,465 bytes, at
+820,677 steps and 72,795 bytes a second. In 24-bit colour it stopped at 68.9 s, at 118,315
 bytes a second. A sleep refunds output only up to a full budget, but each refund still counts
 in full against the lifetime cap on refunds, 4 MiB. At 100,000 bytes for each second slept,
 the refunds are used up after about 42 s while the budget is still full, and the 4 MiB budget
