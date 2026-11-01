@@ -171,7 +171,6 @@ tty_close:
         ldr     x9, =tty_ok
         ldr     x10, [x9]
         cbz     x10, tty_close_done
-        str     xzr, [x9]
         mov     x0, 0
         mov     x1, TCSETS
         ldr     x2, =tty_orig
@@ -183,6 +182,10 @@ tty_close:
         mov     x1, F_SETFL
         mov     x8, SYS_FCNTL
         svc     0
+        // cleared only after both calls, so a SIGTERM in here runs them again from the handler,
+        // which sets the same saved termios and flags a second time
+        ldr     x9, =tty_ok
+        str     xzr, [x9]
 tty_close_done:
         ldp     fp, lr, [sp], 16
         ret
