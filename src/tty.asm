@@ -27,6 +27,34 @@ TTY_ESC = 1
 TTY_CSI = 2
 TTY_SS3 = 3
 TTY_MOUSE = 4
+// the bytes the decoder looks for
+TTY_K_CTRL_C = 3
+TTY_K_LF = 10
+TTY_K_CR = 13
+TTY_K_ESC = 27
+TTY_K_SPACE = 32
+TTY_K_ZERO = 48
+TTY_K_SEMI = 59
+TTY_K_LT = 60
+TTY_K_UP = 65
+TTY_K_M = 77
+TTY_K_O = 79
+TTY_K_BRACKET = 91
+TTY_K_D = 100
+TTY_K_K = 107
+TTY_K_P = 112
+TTY_K_Q = 113
+TTY_K_W = 119
+// or-ing this bit turns an ASCII capital into its lower case
+TTY_K_LOWER = 32
+// a CSI sequence ends at its first byte from here up
+TTY_K_FINAL = 64
+// a mouse report is ESC [ < button ; x ; y M: a decimal button number, capped, and the y field
+// is the last before the M
+TTY_DIGIT_MAX = 9
+TTY_DEC = 10
+TTY_NUM_CAP = 9999
+TTY_MOUSE_YFIELD = 2
 
         .bss
         .balign 16
@@ -209,26 +237,26 @@ tty_feed:
         cmp     x10, TTY_MOUSE
         b.eq    tty_feed_mouse
 tty_feed_ground:
-        cmp     w0, 27
+        cmp     w0, TTY_K_ESC
         b.eq    tty_feed_goesc
-        cmp     w0, 32
+        cmp     w0, TTY_K_SPACE
         b.eq    tty_feed_flap
-        cmp     w0, 13
+        cmp     w0, TTY_K_CR
         b.eq    tty_feed_flap
-        cmp     w0, 10
+        cmp     w0, TTY_K_LF
         b.eq    tty_feed_flap
-        orr     w11, w0, 32
-        cmp     w11, 119
+        orr     w11, w0, TTY_K_LOWER
+        cmp     w11, TTY_K_W
         b.eq    tty_feed_flap
-        cmp     w11, 107
+        cmp     w11, TTY_K_K
         b.eq    tty_feed_flap
-        cmp     w11, 112
+        cmp     w11, TTY_K_P
         b.eq    tty_feed_pause
-        cmp     w11, 113
+        cmp     w11, TTY_K_Q
         b.eq    tty_feed_quit
-        cmp     w0, 3
+        cmp     w0, TTY_K_CTRL_C
         b.eq    tty_feed_quit
-        cmp     w11, 100
+        cmp     w11, TTY_K_D
         b.eq    tty_feed_debug
         b       tty_feed_done
 tty_feed_goesc:
@@ -238,12 +266,12 @@ tty_feed_goesc:
         str     x1, [x11]
         b       tty_feed_done
 tty_feed_esc:
-        cmp     w0, 91
+        cmp     w0, TTY_K_BRACKET
         b.eq    tty_feed_gocsi
-        cmp     w0, 79
+        cmp     w0, TTY_K_O
         b.eq    tty_feed_goss3
         // a second ESC means the first was the Esc key on its own
-        cmp     w0, 27
+        cmp     w0, TTY_K_ESC
         b.eq    tty_feed_quit
         str     xzr, [x9]
         b       tty_feed_ground
@@ -263,7 +291,7 @@ tty_feed_csi:
         ldr     x12, [x11]
         str     xzr, [x11]
         cbz     x12, tty_feed_cbody
-        cmp     w0, 60
+        cmp     w0, TTY_K_LT
         b.ne    tty_feed_cbody
         mov     x10, TTY_MOUSE
         str     x10, [x9]
@@ -273,35 +301,35 @@ tty_feed_csi:
         str     xzr, [x11]
         b       tty_feed_done
 tty_feed_cbody:
-        cmp     w0, 64
+        cmp     w0, TTY_K_FINAL
         b.lt    tty_feed_done
         str     xzr, [x9]
-        cmp     w0, 65
+        cmp     w0, TTY_K_UP
         b.eq    tty_feed_flap
         b       tty_feed_done
 tty_feed_ss3:
         str     xzr, [x9]
-        cmp     w0, 65
+        cmp     w0, TTY_K_UP
         b.eq    tty_feed_flap
         b       tty_feed_done
 tty_feed_mouse:
         ldr     x11, =tty_dfield
         ldr     x12, [x11]
-        sub     w13, w0, 48
-        cmp     w13, 9
+        sub     w13, w0, TTY_K_ZERO
+        cmp     w13, TTY_DIGIT_MAX
         b.hi    tty_feed_mnot
         cbnz    x12, tty_feed_done
         ldr     x14, =tty_dnum
         ldr     x15, [x14]
-        mov     x2, 10
+        mov     x2, TTY_DEC
         madd    x15, x15, x2, x13
-        mov     x2, 9999
+        mov     x2, TTY_NUM_CAP
         cmp     x15, x2
         csel    x15, x15, x2, le
         str     x15, [x14]
         b       tty_feed_done
 tty_feed_mnot:
-        cmp     w0, 59
+        cmp     w0, TTY_K_SEMI
         b.ne    tty_feed_mend
         add     x12, x12, 1
         str     x12, [x11]
@@ -309,9 +337,9 @@ tty_feed_mnot:
 tty_feed_mend:
         str     xzr, [x9]
         // only a left press acts; releases, motion and the wheel do not
-        cmp     w0, 77
+        cmp     w0, TTY_K_M
         b.ne    tty_feed_done
-        cmp     x12, 2
+        cmp     x12, TTY_MOUSE_YFIELD
         b.ne    tty_feed_done
         ldr     x14, =tty_dnum
         ldr     x15, [x14]
