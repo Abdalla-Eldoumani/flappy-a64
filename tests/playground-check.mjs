@@ -104,7 +104,9 @@ function envelope(minutes) {
   console.log(`model output wall (${BYTE_WALL}) reached at: ${byteWallAt === null ? 'not reached' : (byteWallAt / 1000).toFixed(1) + ' s'}`);
   console.log(`step budget lasts ${(stepLife / 60).toFixed(1)} min, output budget ${(byteLife / 60).toFixed(1)} min at these rates`);
   console.log(`projected session length: ${projected.toFixed(1)} minutes (observed stop at ${(secs / 60).toFixed(1)} min${r.error || r.halted ? '' : ', still running'})`);
-  const ok = stepsPerSec < 0.9 * STEP_RATE && bytesPerSec < 0.9 * BYTE_RATE && limit === 0;
+  // steps and bytes under 90% of their refill on average, no second that writes more than a
+  // second of refill, and no stretch near the step stop
+  const ok = stepsPerSec < 0.9 * STEP_RATE && bytesPerSec < 0.9 * BYTE_RATE && secPeakBytes < BYTE_RATE && limit === 0;
   console.log(ok ? 'PASS envelope' : 'FAIL envelope');
   return ok ? 0 : 1;
 }
