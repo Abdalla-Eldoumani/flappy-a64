@@ -234,6 +234,36 @@ GFX_PLAN_RISE = 10
 GFX_PLAN_MEDAL = 12
 GFX_PLAN_PROMPT = 14
 GFX_PLAN_REC = GFX_PLAN_PROMPT + 2
+// s = 2 to 4 share one panel in display rows, in the small font: label, number, label, number,
+// its height and the medal's centre; each scale's logical rows are these times the scale
+GFX_TALL_L1 = 1
+GFX_TALL_N1 = 8
+GFX_TALL_L2 = 15
+GFX_TALL_N2 = 22
+GFX_TALL_H = 30
+GFX_TALL_MEDAL = 17
+GFX_P2_L1 = GFX_TALL_L1 * 2
+GFX_P2_N1 = GFX_TALL_N1 * 2
+GFX_P2_L2 = GFX_TALL_L2 * 2
+GFX_P2_N2 = GFX_TALL_N2 * 2
+GFX_P2_H = GFX_TALL_H * 2
+GFX_P2_MEDAL = GFX_TALL_MEDAL * 2
+GFX_P3_L1 = GFX_TALL_L1 * 3
+GFX_P3_N1 = GFX_TALL_N1 * 3
+GFX_P3_L2 = GFX_TALL_L2 * 3
+GFX_P3_N2 = GFX_TALL_N2 * 3
+GFX_P3_H = GFX_TALL_H * 3
+GFX_P3_MEDAL = GFX_TALL_MEDAL * 3
+GFX_P4_L1 = GFX_TALL_L1 * 4
+GFX_P4_N1 = GFX_TALL_N1 * 4
+GFX_P4_L2 = GFX_TALL_L2 * 4
+GFX_P4_N2 = GFX_TALL_N2 * 4
+GFX_P4_H = GFX_TALL_H * 4
+GFX_P4_MEDAL = GFX_TALL_MEDAL * 4
+// the taller panel at s = 3 rests this much higher, clear of the prompt; s = 4 has no room above
+// GAME OVER, so its prompt moves down onto the dirt instead
+GFX_RISE_S3 = 28
+GFX_PROMPT_S4 = 224
 GFX_DROP_LAST = 16
 GFX_DROP_BIAS = 32
 GFX_SLIDE_FROM = 16
@@ -273,15 +303,15 @@ gfx_drop:
 gfx_slide:
         .hword  256, 237, 220, 205, 190, 177, 166, 155, 146, 138, 131, 125, 120
         .hword  115, 111, 108, 106, 104, 102, 101, 101, 100, 100, 100, 100
-// per scale, the panel's layout (fields at GFX_PLAN_*): s3 and s4 repeat s2's rows of display
-// pixels, so their panel grows to hold a label over each number; s3 rises to keep clear of the
-// prompt, s4 has no room above, so the panel and the prompt go lower
+// per scale, the panel's layout (fields at GFX_PLAN_*); s3 and s4 take s2's display rows, so
+// their panel grows to hold a label over each number
 gfx_plan:
         .hword  0, 0, 0, 0, 0, 0, 0, 0
         .hword  5, 15, 31, 41, GFX_PANEL_H, 0, GFX_MEDAL_CY, GFX_PROMPT_Y
-        .hword  2, 16, 30, 44, GFX_PANEL_H, 0, GFX_MEDAL_CY, GFX_PROMPT_Y
-        .hword  3, 24, 45, 66, 90, 28, 51, GFX_PROMPT_Y
-        .hword  4, 32, 60, 88, 120, 0, 68, 224
+        .hword  GFX_P2_L1, GFX_P2_N1, GFX_P2_L2, GFX_P2_N2, GFX_P2_H, 0, GFX_P2_MEDAL, GFX_PROMPT_Y
+        .hword  GFX_P3_L1, GFX_P3_N1, GFX_P3_L2, GFX_P3_N2, GFX_P3_H, GFX_RISE_S3, GFX_P3_MEDAL
+        .hword  GFX_PROMPT_Y
+        .hword  GFX_P4_L1, GFX_P4_N1, GFX_P4_L2, GFX_P4_N2, GFX_P4_H, 0, GFX_P4_MEDAL, GFX_PROMPT_S4
 // sparkle spots around the medal's centre, plus GFX_SPARK_BIAS to stay unsigned
 gfx_sparks:
         .byte   2, 2, 14, 4, 4, 14, 13, 13
