@@ -1304,17 +1304,9 @@ gfx_score:
         stp     x21, x22, [sp, 32]
         stp     x23, x24, [sp, 48]
         mov     gfx_buf_r, x0
-        ldr     x9, =gfx_nums
-        mov     x10, 0
-        mov     x11, 10
-gfx_score_split:
-        udiv    x12, x1, x11
-        msub    x13, x12, x11, x1
-        strb    w13, [x9, x10]
-        add     x10, x10, 1
-        mov     x1, x12
-        cbnz    x1, gfx_score_split
-        mov     gfx_cnt_r, x10
+        mov     x0, x1
+        bl      gfx_split
+        mov     gfx_cnt_r, x0
         ldr     x9, =gfx_digadv
         ldr     gfx_dadv_r, [x9]
         ldr     x9, =gfx_digw
@@ -1911,24 +1903,34 @@ gfx_ui_mid:
         ldp     fp, lr, [sp], gfx_ui_mid_dealloc
         ret
 
-// gfx_numw(x0 = value) -> x0 = width in small digits; leaves the digits split in gfx_nums
+// gfx_split(x0 = value) -> x0 = how many digits; the digits, lowest first, go to gfx_nums
         .balign 4
-gfx_numw:
+gfx_split:
         stp     fp, lr, [sp, -16]!
         mov     fp, sp
         ldr     x9, =gfx_nums
         mov     x10, 0
-        mov     x11, 10
-gfx_numw_split:
+        mov     x11, GFX_DIGITS
+gfx_split_digit:
         udiv    x12, x0, x11
         msub    x13, x12, x11, x0
         strb    w13, [x9, x10]
         add     x10, x10, 1
         mov     x0, x12
-        cbnz    x0, gfx_numw_split
+        cbnz    x0, gfx_split_digit
+        mov     x0, x10
+        ldp     fp, lr, [sp], 16
+        ret
+
+// gfx_numw(x0 = value) -> x0 = width in small digits; leaves the digits split in gfx_nums
+        .balign 4
+gfx_numw:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        bl      gfx_split
         ldr     x9, =gfx_ncount
-        str     x10, [x9]
-        sub     x10, x10, 1
+        str     x0, [x9]
+        sub     x10, x0, 1
         ldr     x9, =gfx_sdadv
         ldr     x9, [x9]
         ldr     x11, =gfx_sdw
