@@ -110,6 +110,12 @@ r=$(run eio --size 48x43 --deadline 20 --close 2.0 -- \
 s=$(status "$r")
 [ "$s" = 0 ] || fail "status $s"
 report "terminal closed with SIGHUP ignored: EIO, status 0"
+# the lite profile then also tries to give the palette back, a write that fails the same way
+r=$(run eio-lite --size 48x43 --deadline 20 --close 2.0 -- \
+  sh -c 'trap "" HUP; exec "$@"' sh "${RUNNER[@]}" ./flappy --autopilot --seed 3 --lite)
+s=$(status "$r")
+[ "$s" = 0 ] || fail "status $s"
+report "lite, terminal closed with SIGHUP ignored: EIO, status 0"
 r=$(run hup --size 48x43 --deadline 20 --close 2.0 -- "${RUNNER[@]}" ./flappy --autopilot --seed 3)
 s=$(status "$r")
 [ "$s" = -1 ] || fail "status $s"
