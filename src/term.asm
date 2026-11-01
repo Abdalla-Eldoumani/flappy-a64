@@ -1567,6 +1567,10 @@ term_close_done:
 present_abort:
         stp     fp, lr, [sp, -16]!
         mov     fp, sp
+        // the setup goes out with the first frame, so until a byte has gone there is nothing to undo
+        ldr     x9, =term_total
+        ldr     x9, [x9]
+        cbz     x9, term_abort_done
         ldr     x9, =term_len
         str     xzr, [x9]
         ldr     x9, =term_bad
@@ -1577,5 +1581,6 @@ present_abort:
         mov     x1, TERM_SYNC_OFF_LEN
         bl      term_put
         bl      present_close
+term_abort_done:
         ldp     fp, lr, [sp], 16
         ret
