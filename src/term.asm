@@ -87,8 +87,6 @@ TERM_TIPS = 4
 // gfx_geo's entry for the largest scale, which is the smallest display: its columns and rows
 TERM_GEO_MIN = GFX_SCALE_MAX * 8
 TERM_GEO_MIN_ROWS = TERM_GEO_MIN + 6
-// the first scale the lite profile tries, so its picture is never larger than s = 3
-TERM_LITE_FIRST = 3
 // bit 0 of present_frame's flags: the palette changed
 TERM_PAL_CHANGED = 1
 // the lite profile's colours: slot s is palette index TERM_PAL_BASE + s, which leaves the
