@@ -81,9 +81,52 @@ Numbers from the autopilot, seed 7, 3,600 ticks, with more in
 - At s = 1 the game writes 16.6 KB per frame on average. Three quarters of that is colour codes.
 - A frame takes 23 microseconds on a native aarch64 Linux server.
 
-The program uses twelve system calls and no others. It calls no library functions, has no
-heap, and keeps every section under 1 MiB, so it can later run in the AArch64 Playground's
-terminal pane.
+The program calls no library functions, has no heap, keeps every section under 1 MiB, and
+uses twelve system calls, all of which the AArch64 Playground has. A thirteenth,
+rt_sigaction, runs only for `--lite` outside the playground (below).
+
+## In the AArch64 Playground
+
+`make bundle` writes the whole program as one file, `dist/flappy-bundle.asm`, which the
+AArch64 Playground loads and runs in its terminal pane. With nothing typed, the game takes a
+lite profile there. It tells the playground from a real terminal by the control characters the
+terminal reports: the playground reports none at all, and a real terminal has Ctrl-C, Ctrl-D
+and the others set.
+
+The lite profile changes only what goes to the terminal. The game still runs 60 ticks a
+second.
+
+- It draws a frame every second tick.
+- The game's 64 colour slots are palette indexes 16 to 79, set once with OSC 4. Day and night,
+  the bird's colours, the fades and the flash change the palette with a short OSC 4 update,
+  and no cell is sent again.
+- OSC 104 gives the terminal its own palette back when the game ends with q, Esc or Ctrl-C,
+  and when the too-small notice replaces the picture. When the picture returns, the game's
+  palette goes out again first.
+
+The reason is the playground's output budget. A program there starts with 4 MiB of output and
+earns back 100,000 bytes for each second it sleeps, up to another 4 MiB in all. In 24-bit
+colour at s = 3 the game wrote 118,315 bytes a second, and the playground stopped it after
+68.9 seconds. The lite profile writes 72,800 bytes a second, and no second goes over 89,494,
+so it stays under the refill. [docs/PERFORMANCE.md](docs/PERFORMANCE.md) has the measurements.
+
+In today's playground:
+
+- The game still stops after 102 seconds. A sleep's refund counts against the 4 MiB cap on
+  refunds even when the budget is already full and gains nothing from it, so the refunds are
+  used up after about 42 seconds, and the starting 4 MiB about a minute later.
+- The playground does not report the pane's size, so with nothing typed the game guesses
+  80x24, which fits no scale, and shows the too-small notice. Type a size no larger than the
+  pane as the program's arguments, such as `--size 48x43` for s = 3; the game keeps that
+  size. A playground that reports the size needs nothing typed: the game uses it and follows
+  every resize.
+- When the playground stops the game itself, with its stop button or one of its limits, nothing
+  sends OSC 104, and the pane keeps the game's colours in indexes 16 to 79.
+
+`--lite` turns the same profile on in any terminal. The terminal has to understand OSC 4 and
+OSC 104, or the colours come out wrong. On the way out, OSC 104 sets every palette index back
+to the terminal's default, colours you set yourself included. Outside the playground, `--lite`
+also catches SIGTERM, so a kill gives the terminal and its palette back as q does.
 
 ## Build and test
 
@@ -95,21 +138,30 @@ terminal pane.
     match byte for byte, from the normal build and from the one-file bundle.
   - physics: an independent Python model of the game must print the same lines.
   - encoder: a headless terminal replays what the presenter wrote, and every cell must match
-    the frame it should show.
+    the frame it should show: in 24-bit colour at s = 1 and s = 3, and in the lite profile's
+    palette indexes at s = 3 and s = 4, through fades, a death and a medal.
   - smoke: the game plays on a pseudo-terminal with every flap key, pause, a resize, a window
-    too small, quit, Ctrl-C and a kill.
+    too small, quit, Ctrl-C and a kill. With `--lite`, q, Esc, Ctrl-C, the too-small notice
+    and SIGTERM must each give the palette back with OSC 104. A terminal with no control
+    characters, like the playground's, must get the lite profile at the size it reports and
+    follow a resize; a normal one must get 24-bit colour and a frame every tick, unless
+    `--lite` is given.
   - best: the best score file is written, read back, and ignored when it is not a number.
   - harden: a slow terminal, a stalled one, one that closes, a closed pipe, no terminal at all,
     sizes far too small and too large, a best score file that cannot be written, and a
-    folder for frame dumps too long for the file path.
+    folder for frame dumps too long for the file path. The stalled and the closed terminal
+    run again in the lite profile, where the frame after a cut sends the whole palette first.
 - `make frames` renders named moments to PNGs and a contact sheet. It needs netpbm.
 - `make soak` plays on the autopilot for ten minutes. `make envelope` measures what a session
   costs in the playground.
 - `make playground`, part of `make test`, and `make envelope` run the bundle in the AArch64
-  Playground's emulator. That emulator is not in this repository: copy its wasm-node build to
+  Playground's emulator. `make playground` checks the ten recorded runs there, and that with
+  nothing typed the game takes the lite profile and quits on q without a system call the
+  playground lacks. That emulator is not in this repository: copy its wasm-node build to
   `build/playground-wasm`, or the two targets print that they were skipped.
 - `./flappy --headless --ticks N --seed S` prints the game state without a terminal,
-  `--autopilot` plays by itself, and `--bench` prints the cost of every frame.
+  `--autopilot` plays by itself, `--bench` prints the cost of every frame, `--size COLSxROWS`
+  fixes the size the game draws for, and `--lite` turns on the lite profile.
 
 ## Credits
 
