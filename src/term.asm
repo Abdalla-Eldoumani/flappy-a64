@@ -87,6 +87,8 @@ TERM_TIPS = 4
 // gfx_geo's entry for the largest scale, which is the smallest display: its columns and rows
 TERM_GEO_MIN = GFX_SCALE_MAX * 8
 TERM_GEO_MIN_ROWS = TERM_GEO_MIN + 6
+// the first scale the lite profile tries, so its picture is never larger than s = 3
+TERM_LITE_FIRST = 3
 // bit 0 of present_frame's flags: the palette changed
 TERM_PAL_CHANGED = 1
 // the lite profile's colours: slot s is palette index TERM_PAL_BASE + s, which leaves the
@@ -806,6 +808,12 @@ term_open_have:
         ldr     x9, =term_rows
         str     x1, [x9]
         mov     term_s_r, 1
+        // lite starts at s = 3: in the playground s = 2 and s = 1 need more steps a second than its
+        // refill of 1,000,000 and were stopped at 17.2 s and 4.8 s; a bigger terminal centres s = 3
+        ldr     x9, =main_lite
+        ldr     x9, [x9]
+        cbz     x9, term_open_try
+        mov     term_s_r, TERM_LITE_FIRST
 term_open_try:
         ldr     x9, =gfx_geo
         add     x9, x9, term_s_r, lsl 3
