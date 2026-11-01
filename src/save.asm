@@ -13,11 +13,15 @@ SAVE_BEST_READ = 32
 SAVE_BEST_MAX = 99999
 SAVE_LF = 10
 SAVE_CR = 13
+// a ppm row is three bytes a pixel, and the widest display is the logical width
+SAVE_ROW_BYTES = LOG_W * 3
+// the ppm header, or the best score as read and as written, which are all far shorter
+SAVE_HDR_BYTES = 64
 
         .bss
         .balign 16
-save_row:   .skip   512
-save_hdr:   .skip   64
+save_row:   .skip   SAVE_ROW_BYTES
+save_hdr:   .skip   SAVE_HDR_BYTES
         .balign 8
         .global save_best
         .global save_new
