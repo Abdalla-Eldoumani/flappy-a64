@@ -249,20 +249,28 @@ else
 fi
 
 # the profile with nothing typed. A terminal whose control characters all read 0, as only the
-# playground's TCGETS gives them, takes the lite profile at the size it reports: 80x70 is s = 2
-# with its first cell at 4;5 (the 80x24 guessed for no size fits no scale), and the polling takes
-# a resize to 50x45 to s = 3, first cell at 2;2. A normal terminal takes 24-bit colour and a frame
-# every tick, and --lite still forces the lite profile there.
-session prof-cc --cc-off --size 80x70 --deadline 30 --resize 3.0:50x45 --key 5.0:71 \
+# playground's TCGETS gives them, takes the lite profile at the size it reports, and lite draws no
+# larger than s = 3 (s = 2 and s = 1 need more steps a second than the playground refills):
+# 144x128, room for s = 1, gets the s = 3 picture centred, first cell at 43;49 (the 80x24 guessed
+# for no size fits no scale), and the polling takes a resize to 40x35 to s = 4, first cell at
+# 2;3. A normal terminal takes 24-bit colour, a frame every tick and s = 1 at 144x128, first cell
+# at 1;1, and --lite there still forces the lite profile and its s = 3.
+session prof-cc --cc-off --size 144x128 --deadline 30 --resize 3.0:40x35 --key 5.0:71 \
   -- --autopilot --seed 3 --stats
-session prof-full --size 48x43 --deadline 30 --key 4.0:71 -- --autopilot --seed 3 --stats
-session prof-lite --size 48x43 --deadline 30 --key 4.0:71 -- --autopilot --seed 3 --stats --lite
+session prof-full --size 144x128 --deadline 30 --key 4.0:71 -- --autopilot --seed 3 --stats
+session prof-lite --size 144x128 --deadline 30 --key 4.0:71 -- --autopilot --seed 3 --stats --lite
 for p in prof-cc:lite prof-full:full prof-lite:lite; do
   n=${p%%:*}
   if python3 - "smoke-$n.out" "${p#*:}" "$(at "$n" 3.0)" <<'EOF'
 import re, sys
 name, d = sys.argv[1][6:-4], open(sys.argv[1], "rb").read()
 lite, at = sys.argv[2] == "lite", sys.argv[3]
+# a full repaint clears and homes the cursor; the picture's top left cell follows, with a cursor
+# move first unless it is at 1;1
+home = re.compile(rb"\x1b\[2J\x1b\[1;1H(?:\x1b\[(\d+);(\d+)H)?")
+def corner(start):
+    m = home.search(d, start)
+    return m and (m[1] or b"1").decode() + ";" + (m[2] or b"1").decode()
 r = b"\x1b[?1006l\x1b[?1000l\x1b[?7h\x1b[?25h\x1b[?1049l\x1b[0m" + (b"\x1b]104\x1b\\" if lite else b"")
 m = re.search(re.escape(r) + rb"(\d+) (\d+) \d+ \d+\r\nEXIT=0\r\n$", d)
 # the colour codes: 2 for 24-bit, 5 for a palette index
@@ -287,11 +295,12 @@ if (b"\x1b]4;" in d) != lite:
 # lite draws every second tick; within 1% of the ticks allows a catch-up tick on a loaded machine
 if ticks < 120 or (frames > 0.55 * ticks if lite else frames < 0.99 * ticks):
     bad.append(f"frames {frames} for ticks {ticks}")
-if at:
-    cut = int(at)
-    if b"\x1b[4;5H" not in d[:cut] or b"\x1b[2;2H" not in d[cut:]:
-        bad.append("not s = 2 at 80x70, then s = 3 after the resize")
-print(f"{name}: {'lite' if lite else 'full'}, colour codes {sorted(kinds)}, frames {frames} ticks {ticks}" + (f"; {'; '.join(bad)}" if bad else ""))
+first = corner(0)
+if first != ("43;49" if lite else "1;1"):
+    bad.append(f"first cell at {first} at 144x128")
+if at and corner(int(at)) != "2;3":
+    bad.append(f"first cell at {corner(int(at))} after the resize to 40x35, not s = 4 at 2;3")
+print(f"{name}: {'lite' if lite else 'full'}, colour codes {sorted(kinds)}, frames {frames} ticks {ticks}, first cell {first}" + (f"; {'; '.join(bad)}" if bad else ""))
 sys.exit(1 if bad else 0)
 EOF
   then
