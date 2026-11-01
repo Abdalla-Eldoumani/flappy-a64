@@ -199,14 +199,16 @@ sim_start_loop:
         mov     x10, SIM_PIPE_FIRST_X
         madd    x10, sim_i_r, x9, x10
         add     x11, sim_s_r, SIM_PIPEX
-        add     x11, x11, sim_i_r, lsl 4
+        mov     x12, SIM_PIPE_REC
+        madd    x11, sim_i_r, x12, x11
         str     x10, [x11]
         mov     x0, SIM_GAP_RANGE
         bl      sim_pick
         add     x0, x0, SIM_GAP_MIN
         add     x11, sim_s_r, SIM_PIPEX
-        add     x11, x11, sim_i_r, lsl 4
-        str     x0, [x11, 8]
+        mov     x12, SIM_PIPE_REC
+        madd    x11, sim_i_r, x12, x11
+        str     x0, [x11, SIM_PIPE_GAP]
         add     sim_i_r, sim_i_r, 1
 sim_start_test:
         cmp     sim_i_r, SIM_PIPES
@@ -312,7 +314,7 @@ sim_hit_test:
         ldr     x12, =sim_mask
         add     x12, x12, x11
         add     x13, x9, SIM_PIPEX
-        add     x14, x13, 64
+        add     x14, x13, SIM_PIPE_BYTES
 sim_hit_pipe:
         ldr     x15, [x13]
         cmp     x15, SIM_BIRD_X1
@@ -353,7 +355,7 @@ sim_hit_pipe:
         sub     x4, x4, x5
         cmp     x1, x2
         csel    x4, x4, xzr, le
-        ldr     x5, [x13, 8]
+        ldr     x5, [x13, SIM_PIPE_GAP]
         mov     x6, 0
 sim_hit_row:
         add     x7, x10, x6
@@ -380,7 +382,7 @@ sim_hit_rnext:
         cmp     x6, SIM_BIRD_H
         b.lt    sim_hit_row
 sim_hit_next:
-        add     x13, x13, 16
+        add     x13, x13, SIM_PIPE_REC
         cmp     x13, x14
         b.lt    sim_hit_pipe
         mov     w0, 0
@@ -417,12 +419,12 @@ sim_pipes_loop:
         mov     x0, SIM_GAP_RANGE
         bl      sim_pick
         add     x0, x0, SIM_GAP_MIN
-        str     x0, [sim_s_r, 8]
+        str     x0, [sim_s_r, SIM_PIPE_GAP]
         b       sim_pipes_inc
 sim_pipes_store:
         str     x9, [sim_s_r]
 sim_pipes_inc:
-        add     sim_s_r, sim_s_r, 16
+        add     sim_s_r, sim_s_r, SIM_PIPE_REC
         add     sim_i_r, sim_i_r, 1
 sim_pipes_test:
         cmp     sim_i_r, SIM_PIPES
@@ -518,10 +520,10 @@ sim_tick_hit:
         b       sim_tick_done
 sim_tick_score:
         add     x9, sim_s_r, SIM_PIPEX
-        add     x10, x9, 64
+        add     x10, x9, SIM_PIPE_BYTES
         ldr     x11, [sim_s_r, SIM_SCORE]
 sim_tick_sloop:
-        ldr     x12, [x9], 16
+        ldr     x12, [x9], SIM_PIPE_REC
         cmp     x12, SIM_SCORE_X
         cinc    x11, x11, eq
         cmp     x9, x10
@@ -631,12 +633,12 @@ sim_ap_play:
         cmp     x10, SIM_PLAY
         b.ne    sim_ap_done
         add     x12, x9, SIM_PIPEX
-        add     x13, x12, 64
+        add     x13, x12, SIM_PIPE_BYTES
         mov     x14, SIM_PIPE_NONE
         mov     x15, 0
 sim_ap_scan:
         ldr     x1, [x12]
-        ldr     x2, [x12, 8]
+        ldr     x2, [x12, SIM_PIPE_GAP]
         cmp     x1, SIM_NEXT_X
         b.lt    sim_ap_skip
         cmp     x1, x14
@@ -644,7 +646,7 @@ sim_ap_scan:
         mov     x14, x1
         mov     x15, x2
 sim_ap_skip:
-        add     x12, x12, 16
+        add     x12, x12, SIM_PIPE_REC
         cmp     x12, x13
         b.lt    sim_ap_scan
         ldr     x1, [x9, SIM_Y]
