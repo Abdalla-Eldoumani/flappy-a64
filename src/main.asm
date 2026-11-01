@@ -145,6 +145,7 @@ main_ticks:     .skip   8
 main_seed:      .skip   8
 main_seeded:    .skip   8
 main_auto:      .skip   8
+        .global main_lite
 main_lite:      .skip   8
 main_stats:     .skip   8
 main_nflaps:    .skip   8
