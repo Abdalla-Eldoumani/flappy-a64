@@ -9,8 +9,6 @@ define(save_dw_r, x24)
 define(save_dh_r, x25)
 define(save_score_r, x19)
 
-SAVE_FLAGS = O_WRONLY + O_CREAT + O_TRUNC
-SAVE_MODE = 420
 SAVE_BEST_READ = 32
 SAVE_BEST_MAX = 99999
 SAVE_LF = 10
@@ -48,8 +46,8 @@ save_ppm:
         mov     save_pal_r, x3
         mov     x1, x0
         mov     x0, AT_FDCWD
-        mov     x2, SAVE_FLAGS
-        mov     x3, SAVE_MODE
+        mov     x2, FILE_NEW
+        mov     x3, FILE_MODE
         mov     x8, SYS_OPENAT
         svc     0
         tbnz    x0, 63, save_ppm_fail
@@ -204,8 +202,8 @@ save_best_check:
         // a file that cannot be written only costs the record, never the game
         mov     x0, AT_FDCWD
         ldr     x1, =save_s_best
-        mov     x2, SAVE_FLAGS
-        mov     x3, SAVE_MODE
+        mov     x2, FILE_NEW
+        mov     x3, FILE_MODE
         mov     x8, SYS_OPENAT
         svc     0
         tbnz    x0, 63, save_best_check_done
