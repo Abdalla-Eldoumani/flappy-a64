@@ -63,6 +63,16 @@ MAIN_LOWER = 32
 MAIN_HEX_LETTER = 87
 // numbers in arguments and output lines are decimal, and a hex digit below ten is a digit too
 MAIN_DEC_BASE = 10
+// the lite profile outside the playground catches SIGTERM to give the terminal its palette back.
+// rt_sigaction is the one syscall here that the playground lacks, and only a terminal without
+// the playground's sign makes it. A sigaction is a handler, flags, a restorer and a mask of 8
+// bytes; the exit status is the one a shell gives a death by SIGTERM, 128 plus the signal.
+MAIN_SYS_SIGACTION = 134
+MAIN_SIGTERM = 15
+MAIN_SIGSET_BYTES = 8
+MAIN_SIGACT_BYTES = 32
+MAIN_SIGNALLED = 128
+MAIN_TERM_STATUS = MAIN_SIGNALLED + MAIN_SIGTERM
 
         .section .rodata
 main_o_headless:    .asciz  "--headless"
@@ -176,6 +186,7 @@ main_dbgtxt:    .skip   MAIN_DBG_BYTES
         .balign 8
         .global main_pace
 main_pace:      .skip   8
+main_sigact:    .skip   MAIN_SIGACT_BYTES
 
         .text
 
@@ -1282,6 +1293,33 @@ main_small:
         mov     w0, 2
         bl      main_exit
 
+// main_onterm(): SIGTERM in the lite profile outside the playground: the terminal goes back as q
+// leaves it, its palette too, and the game exits; never returns
+        .balign 4
+main_onterm:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        bl      present_abort
+        mov     w0, MAIN_TERM_STATUS
+        bl      main_exit
+
+// main_trap(): SIGTERM runs main_onterm. It needs no restorer, since it never returns, and no
+// flag or mask, since a signal is held back while its own handler runs: a second SIGTERM waits.
+        .balign 4
+main_trap:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x1, =main_sigact
+        ldr     x9, =main_onterm
+        str     x9, [x1]
+        mov     x0, MAIN_SIGTERM
+        mov     x2, 0
+        mov     x3, MAIN_SIGSET_BYTES
+        mov     x8, MAIN_SYS_SIGACTION
+        svc     0
+        ldp     fp, lr, [sp], 16
+        ret
+
 // main_resize(): every 30 ticks, a new terminal size means a new layout and maybe a new scale
         .balign 4
 main_resize:
@@ -1395,6 +1433,13 @@ main_play_seed:
         ldr     x10, [x9]
         ldr     x9, =main_pace
         str     x10, [x9]
+        // --lite anywhere else: SIGTERM gives the palette back too
+        cbz     x10, main_play_start
+        ldr     x9, =tty_nocc
+        ldr     x9, [x9]
+        cbnz    x9, main_play_start
+        bl      main_trap
+main_play_start:
         bl      main_seed_sim
         bl      save_best_load
         mov     x0, LOG_W
