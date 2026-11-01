@@ -91,7 +91,7 @@ terminal pane.
   `dist/flappy-bundle.asm`.
 - `make test` runs the checks below. It needs python3, and Node.js 24 for the terminal
   replays. The Makefile installs `@xterm/headless` with `npm ci`.
-  - goldens: headless runs print the game state every 60 ticks, and nine recorded runs must
+  - goldens: headless runs print the game state every 60 ticks, and ten recorded runs must
     match byte for byte, from the normal build and from the one-file bundle.
   - physics: an independent Python model of the game must print the same lines.
   - encoder: a headless terminal replays what the presenter wrote, and every cell must match
