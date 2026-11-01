@@ -1,14 +1,18 @@
 // Feeds a --render-out stream to a headless xterm.js, the terminal the playground uses, and at
 // every dumped tick compares each playfield cell's two colours with the frame's PPM pixels.
-// usage, from build/: node ../tests/encoder-check.mjs STREAM IDX DUMPDIR COLS ROWS
+// With "indexed" (the lite profile) every cell must be drawn with palette indexes, which resolve
+// through the palette the stream has set with OSC 4 (OSC 104 forgets it); the headless terminal
+// keeps no palette of its own, so the check keeps it.
+// usage, from build/: node ../tests/encoder-check.mjs STREAM IDX DUMPDIR COLS ROWS [indexed]
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import xterm from '@xterm/headless';
 import { halves } from './cells.mjs';
 const { Terminal } = xterm;
 
-const [stream, idxPath, dumpDir, colsArg, rowsArg] = process.argv.slice(2);
+const [stream, idxPath, dumpDir, colsArg, rowsArg, mode] = process.argv.slice(2);
 const cols = Number(colsArg), rows = Number(rowsArg);
+const indexed = mode === 'indexed';
 const data = readFileSync(stream);
 const offsets = new Map();
 for (const line of readFileSync(idxPath, 'utf8').split('\n')) {
@@ -32,7 +36,25 @@ function readPpm(path) {
 
 const term = new Terminal({ cols, rows, scrollback: 0, allowProposedApi: true });
 const feed = (bytes) => new Promise((done) => term.write(bytes, done));
-let fed = 0, mismatches = 0, cells = 0, shown = 0;
+let fed = 0, mismatches = 0, cells = 0, shown = 0, rgbCells = 0, updates = 0, restores = 0;
+
+// returning false lets the terminal's own handlers run as well
+const palette = new Map();
+term.parser.registerOscHandler(4, (spec) => {
+  updates++;
+  const f = spec.split(';');
+  for (let i = 0; i + 1 < f.length; i += 2) {
+    const m = /^rgb:([0-9a-f]{2})\/([0-9a-f]{2})\/([0-9a-f]{2})$/.exec(f[i + 1]);
+    if (/^\d+$/.test(f[i]) && m) palette.set(Number(f[i]), parseInt(m[1] + m[2] + m[3], 16));
+  }
+  return false;
+});
+term.parser.registerOscHandler(104, (spec) => {
+  restores++;
+  if (spec === '') palette.clear();
+  else for (const n of spec.split(';')) palette.delete(Number(n));
+  return false;
+});
 
 for (const t of dumps) {
   const end = offsets.get(t);
@@ -48,8 +70,9 @@ for (const t of dumps) {
     const line = buf.getLine(oy + r);
     for (let c = 0; c < w; c++) {
       const cell = line.getCell(ox + c);
-      const [top, bottom] = halves(cell);
+      const [top, bottom] = halves(cell, indexed ? palette : undefined);
       cells++;
+      if (indexed && (cell.isFgRGB() || cell.isBgRGB())) rgbCells++;
       const wt = rgb(c, 2 * r), wb = rgb(c, 2 * r + 1);
       if (top !== wt || bottom !== wb) {
         mismatches++;
@@ -60,5 +83,6 @@ for (const t of dumps) {
     }
   }
 }
-console.log(`${stream}: ${dumps.length} frames, ${cells} cells, ${mismatches} mismatches`);
-process.exit(mismatches === 0 && dumps.length > 0 ? 0 : 1);
+const lite = indexed ? `, ${rgbCells} cells in 24-bit colour, ${updates} palette updates, ${restores} restores` : '';
+console.log(`${stream}: ${dumps.length} frames, ${cells} cells, ${mismatches} mismatches${lite}`);
+process.exit(mismatches === 0 && rgbCells === 0 && dumps.length > 0 ? 0 : 1);
