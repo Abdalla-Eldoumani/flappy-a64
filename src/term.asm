@@ -61,6 +61,15 @@ TERM_FAR = 4000
 // cells costs fewer bytes as spaces, but only when every one of them is the pen's background
 TERM_GAP = 3
 TERM_SPACE = 32
+// a colour is "38;2;R;G;B" for the foreground or "48;2;R;G;B" for the background: 3 or 4 picks
+// which, 8 and 2 ask for 24-bit colour, and semicolons split the numbers, as in a cursor move
+TERM_SEMI = 59
+TERM_SGR_FG = ART_CHAR_0 + 3
+TERM_SGR_BG = ART_CHAR_0 + 4
+TERM_SGR_EXT = ART_CHAR_0 + 8
+TERM_SGR_RGB = ART_CHAR_0 + 2
+// the too-small notice gives a size as columns x rows
+TERM_X = 120
 // the diff compares a block of eight cells as one 64-bit word; a cell's byte starts at a bit
 // index that is a multiple of eight, which TERM_BYTE_BITS rounds down to
 TERM_BLOCK = 8
@@ -403,9 +412,9 @@ term_init:
         mov     w12, 0
         mov     w13, 0
 term_init_loop:
-        add     w14, w11, 48
-        add     w15, w12, 48
-        add     w1, w13, 48
+        add     w14, w11, ART_CHAR_0
+        add     w15, w12, ART_CHAR_0
+        add     w1, w13, ART_CHAR_0
         cmp     x10, 10
         b.ge    term_init_two
         mov     w2, 1
@@ -451,15 +460,15 @@ term_build:
         mov     fp, sp
         add     x9, x0, 1
         strb    w1, [x9], 1
-        mov     w10, 56
+        mov     w10, TERM_SGR_EXT
         strb    w10, [x9], 1
-        mov     w10, 59
+        mov     w10, TERM_SEMI
         strb    w10, [x9], 1
-        mov     w10, 50
+        mov     w10, TERM_SGR_RGB
         strb    w10, [x9], 1
         mov     x11, 0
 term_build_loop:
-        mov     w10, 59
+        mov     w10, TERM_SEMI
         strb    w10, [x9], 1
         ldrb    w12, [x2, x11]
         ldr     x13, =term_dec
@@ -495,13 +504,13 @@ term_colours_loop:
         ldr     x0, =term_fg
         mov     x9, TERM_REC
         madd    x0, term_c_r, x9, x0
-        mov     w1, 51
+        mov     w1, TERM_SGR_FG
         add     x2, term_s_r, term_c_r, lsl 2
         bl      term_build
         ldr     x0, =term_bg
         mov     x9, TERM_REC
         madd    x0, term_c_r, x9, x0
-        mov     w1, 52
+        mov     w1, TERM_SGR_BG
         add     x2, term_s_r, term_c_r, lsl 2
         bl      term_build
         add     term_c_r, term_c_r, 1
@@ -631,7 +640,7 @@ term_line:
         bl      term_putesc
         mov     x0, term_lrow_r
         bl      term_putdec
-        mov     w0, 59
+        mov     w0, TERM_SEMI
         bl      term_putc
         mov     x0, term_lcol_r
         bl      term_putdec
@@ -710,7 +719,7 @@ term_sizeline_words:
 term_sizeline_size:
         mov     x0, term_zc_r
         bl      term_putdec
-        mov     w0, 120
+        mov     w0, TERM_X
         bl      term_putc
         mov     x0, term_zr_r
         bl      term_putdec
@@ -1076,7 +1085,7 @@ term_pf_abs:
         ldr     w14, [x14]
         str     w14, [term_out_r]
         add     term_out_r, term_out_r, x15
-        mov     w14, 59
+        mov     w14, TERM_SEMI
         strb    w14, [term_out_r], 1
         ldr     x14, [sp, present_frame_ox]
         add     x14, x14, x9
@@ -1141,7 +1150,7 @@ term_pf_colour:
         stp     x3, x4, [term_out_r]
         add     term_out_r, term_out_r, x2
         cbz     x0, term_pf_cend
-        mov     w1, 59
+        mov     w1, TERM_SEMI
         strb    w1, [term_out_r], 1
 term_pf_bgonly:
         ldr     x1, =term_bg
