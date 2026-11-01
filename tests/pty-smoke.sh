@@ -102,27 +102,40 @@ at() { awk -v t="$2" '$2 == t { print $3 }' "smoke-$1.status"; }
 
 # a whole game by hand: title, ready, play, a fall to the ground, game over with a press inside
 # its lockout that must change nothing, restart, pause, resume, play again, quit. The screen at
-# each step comes from replaying the capture in a terminal emulator.
-session walk --deadline 40 --key 1.0:20 --key 1.8:20 --key 3.6:20 --key 5.0:20 --key 6.0:70 \
-  --resize 6.6:144x128 --key 7.6:70 --key 8.0:20 --key 8.6:71 -- --seed 3
+# each step comes from replaying the capture in a terminal emulator. Resizes to the same size
+# only mark the title (0.9) and play (2.6) moments.
+session walk --deadline 40 --resize 0.9:144x128 --key 1.0:20 --key 1.8:20 --resize 2.6:144x128 \
+  --key 3.6:20 --key 5.0:20 --key 6.0:70 --resize 6.6:144x128 --key 7.6:70 --key 8.0:20 \
+  --key 8.6:71 -- --seed 3
 verify walk 0 ""
-for t in 1.8 5.0 6.0 6.6; do
+for t in 0.9 1.8 2.6 3.6 5.0 6.0 6.6; do
   timeout 60 node "$here/screen.mjs" smoke-walk.out 144 128 "smoke-walk-$t.ppm" "@$(at walk "$t")" > /dev/null
 done
 if python3 - smoke-walk "$(at walk 6.6)" "$(at walk 7.6)" <<'EOF'
 import sys
-def colours(path):
-    px = open(path, "rb").read().split(b"\n", 3)[3]
+def colours(path, rows=None):
+    b = open(path, "rb").read().split(b"\n", 3)
+    w = int(b[1].split()[0])
+    px = b[3][:rows * w * 3] if rows else b[3]
     return {px[i:i + 3] for i in range(0, len(px), 3)}
-panel, word = bytes([238, 228, 170]), bytes([252, 168, 48])
+# the panel, the orange of the big words, and the score's white, which only ready and play
+# show in the top rows
+panel, word, white = bytes([238, 228, 170]), bytes([252, 168, 48]), bytes([255, 255, 255])
 n, paused, resumed = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
-ready, over, again = (colours(f"{n}-{t}.ppm") for t in ("1.8", "5.0", "6.0"))
+title, ready, play, press, over, again = (colours(f"{n}-{t}.ppm") for t in ("0.9", "1.8", "2.6", "3.6", "5.0", "6.0"))
+top = {t: white in colours(f"{n}-{t}.ppm", 40) for t in ("0.9", "1.8", "2.6", "6.0")}
 bad = []
-if word not in ready or panel in ready:
+if word not in title or top["0.9"] or panel in title:
+    bad.append("no title screen at the start")
+if word not in ready or not top["1.8"] or panel in ready:
     bad.append("no get ready screen before play")
+if word in play or not top["2.6"] or panel in play:
+    bad.append("no play screen after the flap")
+if panel not in press:
+    bad.append("the press meant for the lockout did not land on the game over screen")
 if panel not in over:
     bad.append("no game over panel after the fall, or the press in the lockout restarted")
-if panel in again or word not in again:
+if panel in again or word not in again or not top["6.0"]:
     bad.append("no get ready screen after the restart")
 if open(f"{n}-6.0.ppm", "rb").read() == open(f"{n}-6.6.ppm", "rb").read():
     bad.append("pausing drew nothing")
@@ -134,7 +147,7 @@ if bad:
     print("; ".join(bad))
 sys.exit(1 if bad else 0)
 EOF
-then echo "PASS walk: ready, play, over, lockout, restart, pause, resume"
+then echo "PASS walk: title, ready, play, over, lockout, restart, pause, resume"
 else echo "FAIL walk"; bad=1; fi
 
 # D shows the debug numbers in the top left corner, where nothing else is pure white
