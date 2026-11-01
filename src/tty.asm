@@ -11,6 +11,10 @@ define(tty_waits_r, x22)
 
 TTY_IFLAG = 0
 TTY_LFLAG = 12
+// after the four flag words come c_line and the 19 control characters, 20 bytes read as two
+// doublewords and a word
+TTY_CC = 16
+TTY_CC_TAIL = TTY_CC + 16
 TTY_VTIME = 22
 TTY_VMIN = 23
 TTY_IOFF = 0x500
@@ -75,10 +79,13 @@ tty_dfield: .skip   8
         .global tty_quit
         .global tty_pause
         .global tty_debug
+        .global tty_nocc
 tty_flaps:  .skip   8
 tty_quit:   .skip   8
 tty_pause:  .skip   8
 tty_debug:  .skip   8
+// 1 when the terminal's TCGETS gave no control character at all, which is the playground's sign
+tty_nocc:   .skip   8
 
         .text
 
@@ -95,6 +102,18 @@ tty_open:
         svc     0
         tbnz    x0, 63, tty_open_fail
         ldr     x9, =tty_orig
+        // the playground's TCGETS writes the four flag words and zeroes the rest, so every
+        // control character reads 0, which Linux takes as switched off; a real terminal starts
+        // with Ctrl-C, Ctrl-D, DEL and the others in place and VMIN 1, and would match only if
+        // each were switched off by hand. Its size cannot tell: the playground may report one.
+        ldp     x10, x11, [x9, TTY_CC]
+        ldr     w12, [x9, TTY_CC_TAIL]
+        orr     x10, x10, x11
+        orr     x10, x10, x12
+        cmp     x10, 0
+        cset    x10, eq
+        ldr     x11, =tty_nocc
+        str     x10, [x11]
         ldr     x10, =tty_raw
         ldp     x11, x12, [x9]
         stp     x11, x12, [x10]
