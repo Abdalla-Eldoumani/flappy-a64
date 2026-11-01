@@ -178,6 +178,18 @@ else
   echo "FAIL small: $sm; the screen at 30x20 was:"; printf '%s\n' "$note" | sed 's/^/  |/'; bad=1
 fi
 
+# narrower than the notice's lines: a line wider than the terminal is never drawn, so each size
+# goes under its words and the tips are left out
+session narrow --size 16x10 --deadline 30 --key 2.0:71 -- --seed 3
+verify narrow 0 ""
+quit=$(at narrow 2.0)
+note=$(timeout 60 node "$here/screen.mjs" smoke-narrow.out 16 10 - "@$quit")
+want=$(printf '%s\n' '' '' '' '  terminal is' '     16x10' ' the game needs' '     36x32' '' '' '')
+if [ "$note" = "$want" ]; then echo "PASS narrow: each size under its words, no tips"
+else
+  echo "FAIL narrow: the screen at 16x10 was:"; printf '%s\n' "$note" | sed 's/^/  |/'; bad=1
+fi
+
 # a kill leaves no chance to restore; the next session must still start and quit cleanly
 timeout 60 python3 "$here/pty_run.py" --out smoke-kill.out --deadline 20 --kill 2.0 \
   --key 1.0:20 -- "${RUNNER[@]}" ./flappy --seed 3 > smoke-kill.status
