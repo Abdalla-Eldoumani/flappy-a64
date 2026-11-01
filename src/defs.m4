@@ -202,7 +202,11 @@ SIM_BIRDC = 120
 SIM_RNG = 128
 SIM_TCOUNT = 136
 SIM_PIPEX = 144
-SIM_SIZE = 208
+// SIM_PIPES records from SIM_PIPEX: each pipe x, then the top of its gap
+SIM_PIPE_GAP = 8
+SIM_PIPE_REC = 16
+SIM_PIPE_BYTES = SIM_PIPES * SIM_PIPE_REC
+SIM_SIZE = SIM_PIPEX + SIM_PIPE_BYTES
 
 // colour slots: what each pixel stores; a palette maps them to RGB
 SLOT_BORDER = 0
