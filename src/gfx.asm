@@ -1982,16 +1982,16 @@ gfx_medal_of:
         stp     fp, lr, [sp, -16]!
         mov     fp, sp
         mov     x9, 0
-        b       gfx_medal_test
-gfx_medal_up:
+        b       gfx_medal_of_test
+gfx_medal_of_up:
         sub     x0, x0, GFX_MEDAL_STEP
         add     x9, x9, 1
-gfx_medal_test:
+gfx_medal_of_test:
         cmp     x9, GFX_MEDALS
-        b.ge    gfx_medal_done
+        b.ge    gfx_medal_of_done
         cmp     x0, GFX_MEDAL_STEP
-        b.ge    gfx_medal_up
-gfx_medal_done:
+        b.ge    gfx_medal_of_up
+gfx_medal_of_done:
         mov     x0, x9
         ldp     fp, lr, [sp], 16
         ret
