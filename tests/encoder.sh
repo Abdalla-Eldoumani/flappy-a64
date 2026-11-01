@@ -2,7 +2,7 @@
 # Encoder equivalence at s = 1 and s = 3: 3,600 ticks of autopilot rendered to a byte stream,
 # a frame dumped every 30th tick, then replayed through xterm.js and compared cell by cell.
 # The lite profile, which draws with palette indexes, is checked the same way at s = 3 and s = 4.
-# Last, the title's zoom hint is checked against the lite profile's largest scale.
+# Last, the title's zoom hint must show in full at s = 3 and s = 4, and in lite only at s = 4.
 # usage, from build/: bash ../tests/encoder.sh [runner]
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
