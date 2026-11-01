@@ -5,6 +5,7 @@
 //   .bss    main  display buffers 2 x 36864                     73728
 //                 flap list 4096 x 4, dump list 1024 x 4        20480
 //                 line, path, settings, debug text, bench        1248
+//                 sigaction for SIGTERM                            32
 //           gfx   logical scratch 240 x 256                     61440
 //                 static background                             36864
 //                 rotated bird, 69 boxes of 24 x 24             39744
@@ -17,9 +18,9 @@
 //                 palette last sent 64 x 4                        256
 //           art   palette, legend map                             392
 //           sim   state 26 x 8, masks 36 x 4                      352
-//           tty   termios x 2, input buffer, decoder              304
+//           tty   termios x 2, input buffer, decoder, sign        312
 //           save  ppm row buffer, header, best score              512
-//                 total                                        418520
+//                 total                                        418560
 //   .rodata art   palettes, sprites, fonts, UI words             8764
 //           rest  messages and tables                             956
 //                 total                                          9720
