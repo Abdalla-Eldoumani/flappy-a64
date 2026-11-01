@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The game when things go wrong: a slow terminal, a stalled one, a terminal that closes, a
-# closed pipe, stdin that is not a terminal, sizes far too small and far too large, and a best
-# score file it cannot write. Each case checks how the game ends and that nothing else broke; a
+# closed pipe, stdin that is not a terminal, sizes far too small and far too large, a best
+# score file it cannot write, and a dump folder too long for its path. Each case checks how the game ends and that nothing else broke; a
 # failing case names the checks that failed.
 # usage, from build/: bash ../tests/harden.sh [runner]
 set -u
