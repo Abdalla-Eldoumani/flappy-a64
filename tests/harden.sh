@@ -17,6 +17,10 @@ finish() {
   if [ -e harden-best.real ]; then mv harden-best.real .flappy_best; fi
 }
 trap finish EXIT
+# an interrupt ends the run after the step it lands in, instead of going on to the next case;
+# the pty steps run in the foreground group, so Ctrl-C reaches them at once
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 fail() { fails="$fails, $1"; }
 report() {
@@ -30,7 +34,7 @@ run() {
   local opts=()
   while [ "$1" != "--" ]; do opts+=("$1"); shift; done
   shift
-  timeout 120 python3 "$here/pty_run.py" --out "harden-$name.out" "${opts[@]}" -- "$@"
+  timeout --foreground 120 python3 "$here/pty_run.py" --out "harden-$name.out" "${opts[@]}" -- "$@"
 }
 # the exit status pty_run reported, or "none" when it reported nothing
 status() { awk '$1 == "status" { print $2; f = 1 } END { if (!f) print "none" }' <<< "$1"; }
