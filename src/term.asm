@@ -162,8 +162,6 @@ term_opened:    .skip   8
 term_dw:        .skip   8
 term_crows:     .skip   8
         .balign 8
-        .global term_cols
-        .global term_rows
 term_cols:      .skip   8
 term_rows:      .skip   8
 term_ox:        .skip   8
@@ -258,7 +256,6 @@ term_putesc:
 
 // term_flush(): writes the buffer; a failed write leaves the screen state unknown
         .balign 4
-        .global term_flush
 term_flush:
         stp     fp, lr, [sp, -16]!
         mov     fp, sp
