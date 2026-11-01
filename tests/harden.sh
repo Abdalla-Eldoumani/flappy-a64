@@ -167,4 +167,22 @@ timeout 60 "${RUNNER[@]}" ./flappy --render-out --ticks 1500 --autopilot --seed 
 grep -qx '[1-9][0-9]*' .flappy_best 2> /dev/null || fail "the same run writes no best, so nothing was tried"
 rm -f .flappy_best
 report "best score file not writable: status 0, nothing replaced it, a write was tried"
+
+# --dump-dir: a frame's path is the folder, a slash, a tick and .ppm in a 512-byte buffer, so the
+# folder may be 486 characters long (two parts, each under the 255 a name may have) and 487 are
+# refused before the game runs
+d486=$(printf 'd%.0s' $(seq 243))/$(printf 'd%.0s' $(seq 242))
+mkdir -p "$d486"
+timeout 60 "${RUNNER[@]}" ./flappy --render-out --ticks 2 --seed 1 --size 48x43 --dump-frames 2 \
+  --dump-dir "$d486" > /dev/null
+s=$?
+[ "$s" = 0 ] || fail "486: status $s"
+[ -s "$d486/2.ppm" ] || fail "486: no frame written"
+timeout 60 "${RUNNER[@]}" ./flappy --render-out --ticks 2 --seed 1 --size 48x43 --dump-frames 2 \
+  --dump-dir "${d486}d" > /dev/null 2> harden-dir.err
+s=$?
+[ "$s" = 2 ] || fail "487: status $s"
+grep -q "bad argument" harden-dir.err || fail "487: no message"
+rm -r "${d486%%/*}"
+report "--dump-dir: 486 characters write the frame, 487 are refused with status 2"
 exit $bad
