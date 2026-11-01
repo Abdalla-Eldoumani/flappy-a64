@@ -233,6 +233,7 @@ GFX_PLAN_H = 8
 GFX_PLAN_RISE = 10
 GFX_PLAN_MEDAL = 12
 GFX_PLAN_PROMPT = 14
+GFX_PLAN_REC = GFX_PLAN_PROMPT + 2
 GFX_DROP_LAST = 16
 GFX_DROP_BIAS = 32
 GFX_SLIDE_FROM = 16
@@ -2137,7 +2138,8 @@ gfx_over:
         ldr     x9, =gfx_scale
         ldr     x9, [x9]
         ldr     gfx_oplan_r, =gfx_plan
-        add     gfx_oplan_r, gfx_oplan_r, x9, lsl 4
+        mov     x10, GFX_PLAN_REC
+        madd    gfx_oplan_r, x9, x10, gfx_oplan_r
         ldrh    w9, [gfx_oplan_r, GFX_PLAN_RISE]
         sub     gfx_opy_r, gfx_opy_r, x9
         mov     x0, GFX_PANEL_X0
