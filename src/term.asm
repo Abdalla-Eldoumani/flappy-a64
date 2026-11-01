@@ -28,8 +28,13 @@ define(term_mtip_r, x20)
 define(term_mlen_r, x21)
 
 TERM_REC = 24
+TERM_COLOUR_BYTES = SLOT_COUNT * TERM_REC
 TERM_UNKNOWN = -1
 TERM_SIZE_CAP = 999
+// one record per number up to the size cap: a length, then up to three digits
+TERM_DECIMALS = TERM_SIZE_CAP + 1
+TERM_DEC_REC = 4
+TERM_DEC_BYTES = TERM_DECIMALS * TERM_DEC_REC
 TERM_GUESS_C = 80
 TERM_GUESS_R = 24
 TERM_OUT_LIMIT = TERM_OUT_SIZE - TERM_OUT_SLACK
@@ -139,9 +144,9 @@ TERM_SMALL2_LEN = term_s_small2_end - term_s_small2
         .bss
         .balign 16
 term_out:       .skip   TERM_OUT_SIZE
-term_fg:        .skip   1536
-term_bg:        .skip   1536
-term_dec:       .skip   4000
+term_fg:        .skip   TERM_COLOUR_BYTES
+term_bg:        .skip   TERM_COLOUR_BYTES
+term_dec:       .skip   TERM_DEC_BYTES
 term_len:       .skip   8
         .balign 8
         .global term_total
@@ -411,7 +416,7 @@ term_init_three:
         strb    w15, [x9, 2]
         strb    w1, [x9, 3]
 term_init_next:
-        add     x9, x9, 4
+        add     x9, x9, TERM_DEC_REC
         add     w13, w13, 1
         cmp     w13, 10
         b.ne    term_init_count
@@ -423,7 +428,7 @@ term_init_next:
         add     w11, w11, 1
 term_init_count:
         add     x10, x10, 1
-        cmp     x10, 1000
+        cmp     x10, TERM_DECIMALS
         b.lt    term_init_loop
         ldp     fp, lr, [sp], 16
         ret
