@@ -103,6 +103,9 @@ second.
 - OSC 104 gives the terminal its own palette back when the game ends with q, Esc or Ctrl-C,
   and when the too-small notice replaces the picture. When the picture returns, the game's
   palette goes out again first.
+- The picture is never larger than s = 3. In the playground, s = 2 and s = 1 need more steps a
+  second than its refill of 1,000,000 and were stopped after 17.2 and 4.8 seconds, so a bigger
+  pane shows the s = 3 picture in its middle.
 
 The reason is the playground's output budget. A program there starts with 4 MiB of output and
 earns back 100,000 bytes for each second it sleeps, up to another 4 MiB in all. In 24-bit
@@ -143,9 +146,9 @@ also catches SIGTERM, so a kill gives the terminal and its palette back as q doe
   - smoke: the game plays on a pseudo-terminal with every flap key, pause, a resize, a window
     too small, quit, Ctrl-C and a kill. With `--lite`, q, Esc, Ctrl-C, the too-small notice
     and SIGTERM must each give the palette back with OSC 104. A terminal with no control
-    characters, like the playground's, must get the lite profile at the size it reports and
-    follow a resize; a normal one must get 24-bit colour and a frame every tick, unless
-    `--lite` is given.
+    characters, like the playground's, must get the lite profile at the size it reports, no
+    larger than s = 3, and follow a resize; a normal one must get 24-bit colour, a frame every
+    tick and s = 1 at 144x128, unless `--lite` is given.
   - best: the best score file is written, read back, and ignored when it is not a number.
   - harden: a slow terminal, a stalled one, one that closes, a closed pipe, no terminal at all,
     sizes far too small and too large, a best score file that cannot be written, and a
@@ -156,12 +159,14 @@ also catches SIGTERM, so a kill gives the terminal and its palette back as q doe
   costs in the playground.
 - `make playground`, part of `make test`, and `make envelope` run the bundle in the AArch64
   Playground's emulator. `make playground` checks the ten recorded runs there, and that with
-  nothing typed the game takes the lite profile and quits on q without a system call the
-  playground lacks. That emulator is not in this repository: copy its wasm-node build to
-  `build/playground-wasm`, or the two targets print that they were skipped.
+  nothing typed the game takes the lite profile, draws no larger than s = 3, and quits on q
+  without a system call the playground lacks. That emulator is not in this repository: copy
+  its wasm-node build to `build/playground-wasm`, or the two targets print that they were
+  skipped.
 - `./flappy --headless --ticks N --seed S` prints the game state without a terminal,
   `--autopilot` plays by itself, `--bench` prints the cost of every frame, `--size COLSxROWS`
-  fixes the size the game draws for, and `--lite` turns on the lite profile.
+  fixes the size the game draws for, and `--lite` turns on the lite profile, which draws no
+  larger than s = 3.
 
 ## Credits
 
