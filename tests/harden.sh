@@ -111,14 +111,15 @@ s=$(status "$r")
 [ "$s" = -1 ] || fail "status $s"
 report "terminal closed: SIGHUP ends it, status -1"
 
-# a closed pipe: SIGPIPE ends the game with 141, and the best score file is left as it was
+# a closed pipe: SIGPIPE ends the game with 141. The cut comes in the first frame, long before a
+# run ends, so the best score check only shows that starting and drawing leave the file alone.
 echo 5 > .flappy_best
 timeout 60 "${RUNNER[@]}" ./flappy --render-out --ticks 600 --autopilot --seed 7 --size 144x128 | head -c 1000 > /dev/null
 s=${PIPESTATUS[0]}
 [ "$s" = 141 ] || fail "status $s"
 [ "$(cat .flappy_best)" = 5 ] || fail "best score file changed"
 rm -f .flappy_best
-report "closed pipe: status 141, best score file unchanged"
+report "closed pipe: status 141, the best score file untouched by the start"
 
 # stdin not a terminal: one line on stderr, status 2
 timeout 20 "${RUNNER[@]}" ./flappy < /dev/null > harden-notty.out 2> harden-notty.err
