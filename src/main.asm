@@ -57,10 +57,12 @@ MAIN_SPACE = 32
 MAIN_COMMA = 44
 MAIN_MINUS = 45
 MAIN_SLASH = 47
-MAIN_X = 120
+MAIN_SIZE_X = 120
 MAIN_LOWER = 32
 // a hex digit from ten up is a letter: the digit plus this gives a for ten
 MAIN_HEX_LETTER = 87
+// numbers in arguments and output lines are decimal, and a hex digit below ten is a digit too
+MAIN_DEC_BASE = 10
 
         .section .rodata
 main_o_headless:    .asciz  "--headless"
@@ -217,7 +219,7 @@ main_num:
         mov     x1, x0
         mov     x0, 0
         mov     w2, 0
-        mov     x11, 10
+        mov     x11, MAIN_DEC_BASE
         ldr     x12, =MAIN_NUM_CAP
         b       main_num_test
 main_num_digit:
@@ -264,7 +266,7 @@ main_fmt_dec:
 main_fmt_pos:
         add     x9, sp, main_fmt_digits
         mov     x10, 0
-        mov     x11, 10
+        mov     x11, MAIN_DEC_BASE
 main_fmt_split:
         udiv    x12, x0, x11
         msub    x13, x12, x11, x0
@@ -293,7 +295,7 @@ main_hex_loop:
         and     x10, x10, 15
         add     x11, x10, ART_CHAR_0
         add     x12, x10, MAIN_HEX_LETTER
-        cmp     x10, 10
+        cmp     x10, MAIN_DEC_BASE
         csel    x10, x11, x12, lt
         strb    w10, [x1], 1
         subs    x9, x9, 4
@@ -567,7 +569,7 @@ main_parse_size:
         cbz     x0, main_parse_badv
         ldrb    w9, [x1]
         orr     w9, w9, MAIN_LOWER
-        cmp     w9, MAIN_X
+        cmp     w9, MAIN_SIZE_X
         b.ne    main_parse_badv
         ldr     x10, =main_size_c
         str     x0, [x10]
