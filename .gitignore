@@ -1,0 +1,4 @@
+build/
+dist/
+tests/node_modules/
+.flappy_best
