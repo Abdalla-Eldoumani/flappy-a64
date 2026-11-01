@@ -66,7 +66,7 @@ elif what == "recover":
 elif what == "has":
     ok = bytes.fromhex(sys.argv[3]) in d
 elif what == "after":
-    ok = d.find(r) >= int(sys.argv[3])
+    ok = sys.argv[3].isdigit() and d.find(r) >= int(sys.argv[3])
 sys.exit(0 if ok else 1)
 EOF
 }
