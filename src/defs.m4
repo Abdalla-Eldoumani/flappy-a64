@@ -257,6 +257,9 @@ SLOT_CLEAR = 255
 // display, at scale 1
 GFX_MAX_BUF = LOG_W * LOG_H
 GFX_SCALE_MAX = 4
+// the first scale the lite profile tries, so its picture is never larger than s = 3; term fits
+// the picture from it, and the title tells gfx when zooming out can still help
+TERM_LITE_FIRST = 3
 TERM_OUT_SIZE = 131072
 // the encoder checks for room only between rows, so the slack holds the longest row: at s = 1
 // a first cell of at most 49 bytes, 143 more of at most 45, and 16 that word stores write past
