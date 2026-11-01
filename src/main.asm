@@ -1316,8 +1316,9 @@ main_stats_line:
         ret
 
 // main_play(): the interactive game, paced to 60 ticks a second by deadline
-main_play_alloc = -(16 + 64) & -16
+main_play_alloc = -(16 + 64 + 8) & -16
 main_play_dealloc = 0 - main_play_alloc
+main_play_press = 80
         .balign 4
 main_play:
         stp     fp, lr, [sp, main_play_alloc]!
@@ -1392,16 +1393,16 @@ main_play_one:
         str     x10, [x9]
         mov     w0, 1
 main_play_auto:
-        str     x0, [sp, -16]!
+        str     x0, [sp, main_play_press]
         ldr     x9, =main_auto
         ldr     x9, [x9]
         cbz     x9, main_play_sim
         bl      sim_autopilot
-        ldr     x1, [sp]
+        ldr     x1, [sp, main_play_press]
         orr     w0, w0, w1
-        str     x0, [sp]
+        str     x0, [sp, main_play_press]
 main_play_sim:
-        ldr     x0, [sp], 16
+        ldr     x0, [sp, main_play_press]
         bl      sim_tick
         bl      main_ended
         ldr     x9, =main_simticks
