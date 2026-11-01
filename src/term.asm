@@ -48,6 +48,8 @@ TERM_MS = 1000000
 // encoder writes; ESC [ goes out as one halfword
 TERM_ESC = 27
 TERM_BRACKET = 91
+// CAN ends a sequence cut off mid-way
+TERM_CAN = 24
 TERM_FINAL = 64
 TERM_FINAL_CUP = 72
 TERM_FINAL_CUF = 67
@@ -871,7 +873,7 @@ term_pf_pal:
         cbz     x10, term_pf_sync
         // a frame was cut mid-sequence: CAN ends it and nothing about the pen is assumed
         str     xzr, [x9]
-        mov     w0, 24
+        mov     w0, TERM_CAN
         bl      term_putc
         ldr     x0, =term_s_reset
         mov     x1, TERM_RESET_LEN
@@ -1250,7 +1252,7 @@ present_close:
         ldr     x9, =term_bad
         ldr     x10, [x9]
         cbz     x10, term_close_seq
-        mov     w0, 24
+        mov     w0, TERM_CAN
         bl      term_putc
 term_close_seq:
         ldr     x0, =term_s_restore
