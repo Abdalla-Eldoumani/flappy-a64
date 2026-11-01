@@ -2,7 +2,9 @@
 //   goldens   lint the bundle, then every headless golden must print byte-identical output
 //   envelope  the autopilot as a terminal program at 48x43, driven the way the terminal pane
 //             drives it, measured against the playground's refill rates and lifetime walls
-// usage, from build/: node ../tests/playground-check.mjs goldens|envelope [minutes]
+//   profile   with no --lite typed, the game takes the lite profile, and q ends it with exit 0
+//             and no error, which shows it made no syscall the playground lacks
+// usage, from build/: node ../tests/playground-check.mjs goldens|envelope [minutes]|profile
 import { createRequire } from 'node:module';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -126,8 +128,63 @@ function envelope(minutes) {
   return ok ? 0 : 1;
 }
 
+// The colour codes in SGR sequences: '2' for 24-bit, '5' for a palette index.
+function colourKinds(out) {
+  const kinds = new Set();
+  for (const [, p] of out.matchAll(/\x1b\[([0-9;]*)m/g)) {
+    const t = p.split(';');
+    for (let i = 0; i < t.length; i++) {
+      if ((t[i] === '38' || t[i] === '48') && i + 1 < t.length) {
+        kinds.add(t[i + 1]);
+        i += t[i + 1] === '2' ? 4 : 2;
+      }
+    }
+  }
+  return [...kinds].sort().join(',');
+}
+
+// Runs the game in the console with ARGS for SECONDS of virtual time, presses q, and gives it
+// five more seconds to exit. Any syscall the emulator lacks would end the run with an error.
+// KINDS are the colour codes it must use, and each of WANTBEFORE must show before the q.
+function profileRun(name, args, seconds, kinds, wantBefore) {
+  const emu = load(args);
+  emu.set_snapshots_paused(true);
+  let ms = 0, out = '', before = null, r;
+  do {
+    r = emu.run_until_break(CHUNK);
+    out += emu.take_stdout();
+    ms += r.sleep_ms || 0;
+    if (before === null && ms >= seconds * 1000) {
+      before = out;
+      emu.push_stdin('q');
+    }
+  } while (!r.halted && !r.error && ms < (seconds + 5) * 1000);
+  const restore = '\x1b[?1006l\x1b[?1000l\x1b[?7h\x1b[?25h\x1b[?1049l\x1b[0m', unpal = '\x1b]104\x1b\\';
+  const exit = String(emu.get_exit_code());
+  const fails = [];
+  if (r.error) fails.push(`error ${r.error}`);
+  if (!r.halted || exit !== '0') fails.push(`exit ${exit}`);
+  if (colourKinds(out) !== kinds) fails.push(`colour codes other than [${kinds}]`);
+  for (const [what, text] of wantBefore) if (!(before || '').includes(text)) fails.push(`no ${what} before q`);
+  if (!out.endsWith(restore + unpal)) fails.push('no restore and OSC 104 at the end');
+  console.log(`${fails.length ? 'FAIL' : 'PASS'} ${name}: colour codes [${colourKinds(out)}], ${out.split('\x1b]4;').length - 1} OSC 4, exit ${exit}, error ${r.error || 'none'}${fails.length ? '; ' + fails.join(', ') : ''}`);
+  return fails.length > 0;
+}
+
+// In today's playground TIOCGWINSZ answers ENOTTY and TCGETS gives no control character, so the
+// game guesses 80x24, too small for any scale, and shows the notice, which only the lite profile
+// follows with OSC 104; with a size it draws in palette indexes after an OSC 4. The playground
+// never installs the SIGTERM handler, --lite or not: rt_sigaction would stop the run.
+function profile() {
+  let bad = profileRun('no arguments', [], 2, '', [['notice', 'terminal is 80x24'], ['OSC 104', '\x1b]104\x1b\\']]);
+  bad = profileRun('--size 48x43', ['--size', '48x43'], 3, '5', [['OSC 4', '\x1b]4;']]) || bad;
+  bad = profileRun('--lite --size 48x43', ['--lite', '--size', '48x43'], 3, '5', [['OSC 4', '\x1b]4;']]) || bad;
+  return bad ? 1 : 0;
+}
+
 const mode = process.argv[2];
 if (mode === 'goldens') process.exit(goldens());
 if (mode === 'envelope') process.exit(envelope(Number(process.argv[3] || 15)));
-console.error('usage: playground-check.mjs goldens|envelope [minutes]');
+if (mode === 'profile') process.exit(profile());
+console.error('usage: playground-check.mjs goldens|envelope [minutes]|profile');
 process.exit(2);
