@@ -20,6 +20,14 @@ check() {
 }
 RUNNER=("$@")
 
+# the player's best score is put aside for the test and put back at the end
+if [ -e .flappy_best ]; then mv .flappy_best best-best.real; fi
+finish() {
+  rm -f .flappy_best
+  if [ -e best-best.real ]; then mv best-best.real .flappy_best; fi
+}
+trap finish EXIT
+
 : > .flappy_best
 shot empty
 play --ticks 1110
@@ -57,5 +65,4 @@ printf '1234567890123456789012345\n' > .flappy_best
 play --ticks 1110
 check "a huge number clamps above any score and stays" "$(cat .flappy_best)" "1234567890123456789012345"
 
-: > .flappy_best
 exit $bad
