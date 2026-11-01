@@ -43,7 +43,8 @@ that is `build/`.
 The game is 144 by 256 pixels. At full size, s = 1, it needs a terminal 144 columns wide and
 128 rows tall. A smaller window gets a smaller picture: s = 2 needs 72 by 64, s = 3 48 by 43,
 and s = 4 36 by 32. Below that, the game shows the size it has and the size it needs, and
-waits. At any s above 1 the title says ZOOM OUT.
+waits. At any s above 1 the title says ZOOM OUT, except at s = 3 in the lite profile, which
+never draws larger (below).
 
 In Windows Terminal:
 
@@ -79,7 +80,7 @@ Numbers from the autopilot, seed 7, 3,600 ticks, with more in
 [docs/PERFORMANCE.md](docs/PERFORMANCE.md):
 
 - At s = 1 the game writes 16.6 KB per frame on average. Three quarters of that is colour codes.
-- A frame takes 23 microseconds on a native aarch64 Linux server.
+- A frame takes 24 microseconds on a native aarch64 Linux server.
 
 The program calls no library functions, has no heap, keeps every section under 1 MiB, and
 uses twelve system calls, all of which the AArch64 Playground has. A thirteenth,
@@ -105,13 +106,15 @@ second.
   palette goes out again first.
 - The picture is never larger than s = 3. In the playground, s = 2 and s = 1 need more steps a
   second than its refill of 1,000,000 and were stopped after 17.2 and 4.8 seconds, so a bigger
-  pane shows the s = 3 picture in its middle.
+  pane shows the s = 3 picture in its middle. The title says ZOOM OUT only at s = 4, the one
+  scale where zooming out still makes the picture bigger.
 
 The reason is the playground's output budget. A program there starts with 4 MiB of output and
 earns back 100,000 bytes for each second it sleeps, up to another 4 MiB in all. In 24-bit
 colour at s = 3 the game wrote 118,315 bytes a second, and the playground stopped it after
-68.9 seconds. The lite profile writes 72,800 bytes a second, and no second goes over 89,494,
-so it stays under the refill. [docs/PERFORMANCE.md](docs/PERFORMANCE.md) has the measurements.
+68.9 seconds. At 48x43 the lite profile writes about 72,800 bytes a second, and no second goes
+over 89,494; at 144x128, with the same s = 3 picture in the middle, about 73,300 and 90,122.
+Both stay under the refill. [docs/PERFORMANCE.md](docs/PERFORMANCE.md) has the measurements.
 
 In today's playground:
 
