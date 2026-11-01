@@ -159,10 +159,7 @@ term_bsplit:    .skip   TERM_SPLIT_BYTES
 term_bframe:    .skip   8
 term_inited:    .skip   8
 term_opened:    .skip   8
-term_scale:     .skip   8
 term_dw:        .skip   8
-term_dh:        .skip   8
-term_stride:    .skip   8
 term_crows:     .skip   8
         .balign 8
         .global term_cols
@@ -561,8 +558,6 @@ term_open_next:
         add     term_s_r, term_s_r, 1
         cmp     term_s_r, GFX_SCALE_MAX
         b.le    term_open_try
-        ldr     x9, =term_scale
-        str     xzr, [x9]
         bl      term_small
         mov     w0, 0
         b       term_open_done
@@ -570,17 +565,9 @@ term_open_fit:
         ldr     x9, =gfx_geo
         add     x9, x9, term_s_r, lsl 3
         ldrh    w10, [x9]
-        ldrh    w11, [x9, 2]
-        ldrh    w12, [x9, 4]
         ldrh    w13, [x9, 6]
-        ldr     x14, =term_scale
-        str     term_s_r, [x14]
         ldr     x14, =term_dw
         str     x10, [x14]
-        ldr     x14, =term_dh
-        str     x11, [x14]
-        ldr     x14, =term_stride
-        str     x12, [x14]
         ldr     x14, =term_crows
         str     x13, [x14]
         sub     x14, term_c_r, x10
