@@ -39,6 +39,9 @@ TERM_SIZE_CAP = 999
 TERM_DECIMALS = TERM_SIZE_CAP + 1
 TERM_DEC_REC = 4
 TERM_DEC_BYTES = TERM_DECIMALS * TERM_DEC_REC
+// term_init counts in base ten: one digit below the base, two below its square, else three
+TERM_DEC_BASE = 10
+TERM_DEC_HUNDRED = TERM_DEC_BASE * TERM_DEC_BASE
 TERM_GUESS_C = 80
 TERM_GUESS_R = 24
 TERM_OUT_LIMIT = TERM_OUT_SIZE - TERM_OUT_SLACK
@@ -69,7 +72,7 @@ TERM_SGR_BG = ART_CHAR_0 + 4
 TERM_SGR_EXT = ART_CHAR_0 + 8
 TERM_SGR_RGB = ART_CHAR_0 + 2
 // the too-small notice gives a size as columns x rows
-TERM_X = 120
+TERM_SIZE_X = 120
 // the diff compares a block of eight cells as one 64-bit word; a cell's byte starts at a bit
 // index that is a multiple of eight, which TERM_BYTE_BITS rounds down to
 TERM_BLOCK = 8
@@ -415,14 +418,14 @@ term_init_loop:
         add     w14, w11, ART_CHAR_0
         add     w15, w12, ART_CHAR_0
         add     w1, w13, ART_CHAR_0
-        cmp     x10, 10
+        cmp     x10, TERM_DEC_BASE
         b.ge    term_init_two
         mov     w2, 1
         strb    w2, [x9]
         strb    w1, [x9, 1]
         b       term_init_next
 term_init_two:
-        cmp     x10, 100
+        cmp     x10, TERM_DEC_HUNDRED
         b.ge    term_init_three
         mov     w2, 2
         strb    w2, [x9]
@@ -438,11 +441,11 @@ term_init_three:
 term_init_next:
         add     x9, x9, TERM_DEC_REC
         add     w13, w13, 1
-        cmp     w13, 10
+        cmp     w13, TERM_DEC_BASE
         b.ne    term_init_count
         mov     w13, 0
         add     w12, w12, 1
-        cmp     w12, 10
+        cmp     w12, TERM_DEC_BASE
         b.ne    term_init_count
         mov     w12, 0
         add     w11, w11, 1
@@ -719,7 +722,7 @@ term_sizeline_words:
 term_sizeline_size:
         mov     x0, term_zc_r
         bl      term_putdec
-        mov     w0, TERM_X
+        mov     w0, TERM_SIZE_X
         bl      term_putc
         mov     x0, term_zr_r
         bl      term_putdec
