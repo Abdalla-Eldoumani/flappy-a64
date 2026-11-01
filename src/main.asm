@@ -1086,8 +1086,8 @@ main_bench_fits:
         // the screen set-up is not a frame
         bl      term_bench_take
         ldr     x9, =term_bsplit
-        stp     xzr, xzr, [x9]
-        stp     xzr, xzr, [x9, 16]
+        stp     xzr, xzr, [x9, TERM_SPLIT_CURSOR]
+        stp     xzr, xzr, [x9, TERM_SPLIT_GLYPH]
         mov     main_t_r, 0
         b       main_bench_test
 main_bench_loop:
@@ -1134,16 +1134,16 @@ main_bench_test:
         bl      main_put3
         ldr     main_bv_r, =term_bsplit
         ldr     x1, =main_s_bcur
-        ldr     x2, [main_bv_r]
+        ldr     x2, [main_bv_r, TERM_SPLIT_CURSOR]
         bl      main_putavg
         ldr     x1, =main_s_bcol
-        ldr     x2, [main_bv_r, 8]
+        ldr     x2, [main_bv_r, TERM_SPLIT_COLOUR]
         bl      main_putavg
         ldr     x1, =main_s_bgly
-        ldr     x2, [main_bv_r, 16]
+        ldr     x2, [main_bv_r, TERM_SPLIT_GLYPH]
         bl      main_putavg
         ldr     x1, =main_s_both
-        ldr     x2, [main_bv_r, 24]
+        ldr     x2, [main_bv_r, TERM_SPLIT_OTHER]
         bl      main_putavg
         mov     w9, 10
         strb    w9, [x0], 1
