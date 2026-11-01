@@ -29,7 +29,6 @@ sim_mask:   .skip   SIM_MASKS_SIZE
 
 // sim_rand() -> x0 = next xorshift64* output
         .balign 4
-        .global sim_rand
 sim_rand:
         stp     fp, lr, [sp, -16]!
         mov     fp, sp
