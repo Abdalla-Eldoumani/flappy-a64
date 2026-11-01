@@ -1377,13 +1377,16 @@ main_play:
         mov     w0, 2
         bl      main_exit
 main_play_tty:
-        // an unknown size with a working terminal is what the playground looks like
         bl      tty_size
         ldr     x9, =main_lastc
         str     x0, [x9]
         ldr     x9, =main_lastr
         str     x1, [x9]
-        cbnz    w0, main_play_seed
+        // a terminal with no control character is the playground (see tty_open), which gets the
+        // lite profile with nothing typed; whether it reports a size does not matter
+        ldr     x9, =tty_nocc
+        ldr     x10, [x9]
+        cbz     x10, main_play_seed
         ldr     x9, =main_lite
         mov     x10, 1
         str     x10, [x9]
