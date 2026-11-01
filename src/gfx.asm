@@ -2041,6 +2041,7 @@ gfx_medal_of_done:
         ret
 
 // gfx_title(x0 = back): the wordmark, the prompt, the best score, and at s > 1 the zoom hint
+// (in lite only above TERM_LITE_FIRST)
 gfx_title_alloc = -(16 + 48) & -16
 gfx_title_dealloc = 0 - gfx_title_alloc
         .balign 4
@@ -2058,10 +2059,20 @@ gfx_title:
         mov     x1, GFX_E_PRESS
         mov     x2, GFX_TPRESS_Y
         bl      gfx_ui_mid
+        // lite never draws larger than its first scale, so there zooming out cannot help
+        ldr     x9, =main_lite
+        ldr     x9, [x9]
+        cbz     x9, gfx_title_zoom
+        ldr     x9, =gfx_scale
+        ldr     x9, [x9]
+        cmp     x9, TERM_LITE_FIRST
+        b.le    gfx_title_best
+gfx_title_zoom:
         mov     x0, gfx_tb_r
         mov     x1, GFX_E_ZOOM
         mov     x2, GFX_ZOOM_Y
         bl      gfx_ui_mid
+gfx_title_best:
         // label, a one-digit gap, then the number, centred as one line
         ldr     x9, =save_best
         ldr     gfx_tv_r, [x9]
