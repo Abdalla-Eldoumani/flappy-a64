@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Plays the game on a pseudo-terminal: start, flap every way, pause, quit, Ctrl-C, Esc, a long
-# autopilot run, and a kill. Each session must leave the terminal as it found it.
+# autopilot run, the profile each terminal gets, and kills. Each session must leave the terminal
+# as it found it.
 # usage, from build/: bash ../tests/pty-smoke.sh [runner]
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
@@ -17,7 +18,8 @@ finish() {
 }
 trap finish EXIT
 
-# wraps the game so the capture shows its exit status and stty can compare the termios
+# wraps the game so the capture shows its exit status and stty can compare the termios; a
+# --kill reaches the wrapper too, which outlives it to report the game's status
 session() {
   local name=$1; shift
   local opts=()
@@ -25,6 +27,7 @@ session() {
   shift
   timeout --foreground 60 python3 "$here/pty_run.py" --out "smoke-$name.out" "${opts[@]}" -- \
     sh -c 'f="import fcntl, os; print(fcntl.fcntl(0, fcntl.F_GETFL) & os.O_NONBLOCK)"
+      trap : TERM
       { stty -g; python3 -c "$f"; } > "smoke-$0.before"; "$@"; echo "EXIT=$?"
       { stty -g; python3 -c "$f"; } > "smoke-$0.after"' \
     "$name" "${RUNNER[@]}" ./flappy "$@" > "smoke-$name.status"
@@ -245,11 +248,74 @@ else
   echo "FAIL narrow: the screen at 16x10 was:"; printf '%s\n' "$note" | sed 's/^/  |/'; bad=1
 fi
 
+# the profile with nothing typed. A terminal whose control characters all read 0, as only the
+# playground's TCGETS gives them, takes the lite profile at the size it reports: 80x70 is s = 2
+# with its first cell at 4;5 (the 80x24 guessed for no size fits no scale), and the polling takes
+# a resize to 50x45 to s = 3, first cell at 2;2. A normal terminal takes 24-bit colour and a frame
+# every tick, and --lite still forces the lite profile there.
+session prof-cc --cc-off --size 80x70 --deadline 30 --resize 3.0:50x45 --key 5.0:71 \
+  -- --autopilot --seed 3 --stats
+session prof-full --size 48x43 --deadline 30 --key 4.0:71 -- --autopilot --seed 3 --stats
+session prof-lite --size 48x43 --deadline 30 --key 4.0:71 -- --autopilot --seed 3 --stats --lite
+for p in prof-cc:lite prof-full:full prof-lite:lite; do
+  n=${p%%:*}
+  if python3 - "smoke-$n.out" "${p#*:}" "$(at "$n" 3.0)" <<'EOF'
+import re, sys
+name, d = sys.argv[1][6:-4], open(sys.argv[1], "rb").read()
+lite, at = sys.argv[2] == "lite", sys.argv[3]
+r = b"\x1b[?1006l\x1b[?1000l\x1b[?7h\x1b[?25h\x1b[?1049l\x1b[0m" + (b"\x1b]104\x1b\\" if lite else b"")
+m = re.search(re.escape(r) + rb"(\d+) (\d+) \d+ \d+\r\nEXIT=0\r\n$", d)
+# the colour codes: 2 for 24-bit, 5 for a palette index
+kinds = set()
+for p in re.findall(rb"\x1b\[([0-9;]*)m", d):
+    t, i = p.split(b";"), 0
+    while i < len(t):
+        if t[i] in (b"38", b"48") and i + 1 < len(t):
+            kinds.add(t[i + 1].decode()); i += 5 if t[i + 1] == b"2" else 3
+        else:
+            i += 1
+bad = []
+if not m:
+    bad.append("no restore, stats line and EXIT=0 at the end")
+    frames = ticks = 0
+else:
+    frames, ticks = int(m[1]), int(m[2])
+if kinds != ({"5"} if lite else {"2"}):
+    bad.append(f"colour codes {sorted(kinds)}")
+if (b"\x1b]4;" in d) != lite:
+    bad.append("OSC 4 where it should not be, or none where it should")
+# lite draws every second tick; within 1% of the ticks allows a catch-up tick on a loaded machine
+if ticks < 120 or (frames > 0.55 * ticks if lite else frames < 0.99 * ticks):
+    bad.append(f"frames {frames} for ticks {ticks}")
+if at:
+    cut = int(at)
+    if b"\x1b[4;5H" not in d[:cut] or b"\x1b[2;2H" not in d[cut:]:
+        bad.append("not s = 2 at 80x70, then s = 3 after the resize")
+print(f"{name}: {'lite' if lite else 'full'}, colour codes {sorted(kinds)}, frames {frames} ticks {ticks}" + (f"; {'; '.join(bad)}" if bad else ""))
+sys.exit(1 if bad else 0)
+EOF
+  then
+    if cmp -s "smoke-$n.before" "smoke-$n.after"; then echo "PASS $n"; else echo "FAIL $n: termios"; bad=1; fi
+  else echo "FAIL $n"; bad=1; fi
+done
+
+# SIGTERM in --lite gives the terminal back as q does, the palette too, and the game exits 143, as
+# a shell reports a death by SIGTERM
+session lite-term --size 48x43 --deadline 30 --key 1.0:20 --kill 3.0 -- --lite --seed 3
+verify lite-term 143 "$unpal"
+
 # a kill leaves no chance to restore; the next session must still start and quit cleanly
 timeout --foreground 60 python3 "$here/pty_run.py" --out smoke-kill.out --deadline 20 --kill 2.0 \
   --key 1.0:20 -- "${RUNNER[@]}" ./flappy --seed 3 > smoke-kill.status
 if grep -q "^status -15$" smoke-kill.status; then echo "PASS kill (status -15)"
 else echo "FAIL kill: $(cat smoke-kill.status)"; bad=1; fi
+# with the playground's sign the lite profile installs no handler, as in the playground, where
+# rt_sigaction would stop the game, so SIGTERM ends it as it ends the full profile
+timeout --foreground 60 python3 "$here/pty_run.py" --out smoke-cckill.out --cc-off --deadline 20 \
+  --kill 2.0 --key 1.0:20 -- "${RUNNER[@]}" ./flappy --seed 3 > smoke-cckill.status
+if grep -q "^status -15$" smoke-cckill.status && grep -qaF "$(printf '\033]4;')" smoke-cckill.out; then
+  echo "PASS cc-off kill: lite, no handler (status -15)"
+else echo "FAIL cc-off kill: $(cat smoke-cckill.status)"; bad=1; fi
 session after --deadline 30 --key 1.0:71 -- --seed 3
 verify after 0 ""
 
