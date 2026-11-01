@@ -129,15 +129,16 @@ grep -q "stdin is not a terminal" harden-notty.err || fail "no message"
 [ -s harden-notty.out ] && fail "wrote to stdout"
 report "stdin not a terminal: status 2, one line on stderr"
 
-# 1x1: the notice starts with the size the terminal has (one row holds only that first line),
-# and the game waits for q
+# 1x1: no line of the notice fits one column, and a line wider than the terminal is never
+# drawn, so the screen is cleared and left empty; the game waits for q
 r=$(run tiny --size 144x128 --deadline 20 --key 2.0:71 -- "${RUNNER[@]}" ./flappy --size 1x1)
 s=$(status "$r")
 [ "$s" = 0 ] || fail "status $s"
 cap ends harden-tiny.out || fail "no restore at the end"
-cap has harden-tiny.out "$(printf 'terminal is 1x1' | od -An -tx1 | tr -d ' \n')" || fail "no size it has"
+cap has harden-tiny.out "$(printf '\033[2J' | od -An -tx1 | tr -d ' \n')" || fail "no clear"
+cap has harden-tiny.out "$(printf 'terminal' | od -An -tx1 | tr -d ' \n')" && fail "a notice line wider than the terminal"
 cap after harden-tiny.out "$(keyat "$r" 2.0)" || fail "quit before the q"
-report "--size 1x1: the notice, waits for q, clean end"
+report "--size 1x1: a cleared screen with no line wider than it, waits for q, clean end"
 
 # 2000x2000 is taken as 999x999, the size the decimal table reaches: the s = 1 picture (144 x
 # 128 cells) is centred there, so the first cell goes to row 436, column 428
