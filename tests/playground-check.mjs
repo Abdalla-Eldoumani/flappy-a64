@@ -174,10 +174,13 @@ function profileRun(name, args, seconds, kinds, wantBefore) {
 // In today's playground TIOCGWINSZ answers ENOTTY and TCGETS gives no control character, so the
 // game guesses 80x24, too small for any scale, and shows the notice, which only the lite profile
 // follows with OSC 104; with a size it draws in palette indexes after an OSC 4. The playground
-// never installs the SIGTERM handler, --lite or not: rt_sigaction would stop the run.
+// never installs the SIGTERM handler, --lite or not: rt_sigaction would stop the run. Lite draws
+// no larger than s = 3, so 144x128, room for s = 1, gets the s = 3 picture centred: the first
+// cursor move after the clear puts its top left cell at 43;49.
 function profile() {
   let bad = profileRun('no arguments', [], 2, '', [['notice', 'terminal is 80x24'], ['OSC 104', '\x1b]104\x1b\\']]);
   bad = profileRun('--size 48x43', ['--size', '48x43'], 3, '5', [['OSC 4', '\x1b]4;']]) || bad;
+  bad = profileRun('--size 144x128', ['--size', '144x128'], 3, '5', [['s = 3 picture at 43;49', '\x1b[2J\x1b[1;1H\x1b[43;49H']]) || bad;
   bad = profileRun('--lite --size 48x43', ['--lite', '--size', '48x43'], 3, '5', [['OSC 4', '\x1b]4;']]) || bad;
   return bad ? 1 : 0;
 }
