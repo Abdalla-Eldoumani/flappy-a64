@@ -98,8 +98,10 @@ function envelope(minutes) {
   console.log(`steps: ${steps}, ${Math.round(stepsPerSec)} per s (${(100 * stepsPerSec / STEP_RATE).toFixed(1)}% of the refill), busiest second ${secPeakSteps}`);
   console.log(`bytes: ${seen}, ${Math.round(bytesPerSec)} per s (${(100 * bytesPerSec / BYTE_RATE).toFixed(1)}% of the refill), busiest second ${secPeakBytes}`);
   console.log(`peak steps between two sleeps: ${peak}; chunks at the ${CHUNK}-step stop: ${limit}`);
-  console.log(`step wall (${STEP_WALL}) reached at: ${stepWallAt === null ? 'not reached' : (stepWallAt / 1000).toFixed(1) + ' s'}`);
-  console.log(`output wall (${BYTE_WALL}) reached at: ${byteWallAt === null ? 'not reached' : (byteWallAt / 1000).toFixed(1) + ' s'}`);
+  // the walls below are this script's model of the budgets; the emulator's own stop is what counts
+  if (r.error) console.log(`the emulator stopped it at ${secs.toFixed(1)} s, after ${seen} bytes and ${steps} steps`);
+  console.log(`model step wall (${STEP_WALL}) reached at: ${stepWallAt === null ? 'not reached' : (stepWallAt / 1000).toFixed(1) + ' s'}`);
+  console.log(`model output wall (${BYTE_WALL}) reached at: ${byteWallAt === null ? 'not reached' : (byteWallAt / 1000).toFixed(1) + ' s'}`);
   console.log(`step budget lasts ${(stepLife / 60).toFixed(1)} min, output budget ${(byteLife / 60).toFixed(1)} min at these rates`);
   console.log(`projected session length: ${projected.toFixed(1)} minutes (observed stop at ${(secs / 60).toFixed(1)} min${r.error || r.halted ? '' : ', still running'})`);
   const ok = stepsPerSec < 0.9 * STEP_RATE && bytesPerSec < 0.9 * BYTE_RATE && limit === 0;
