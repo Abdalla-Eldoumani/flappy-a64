@@ -102,10 +102,15 @@ main_e_small:
         .ascii  "flappy: the --size given is too small, the game needs 36x32"
         .byte   10
 main_e_small_end:
+main_e_idx:
+        .ascii  "flappy: cannot write render.idx here"
+        .byte   10
+main_e_idx_end:
 
 MAIN_E_TTY_LEN = main_e_tty_end - main_e_tty
 MAIN_E_ARG_LEN = main_e_arg_end - main_e_arg
 MAIN_E_SMALL_LEN = main_e_small_end - main_e_small
+MAIN_E_IDX_LEN = main_e_idx_end - main_e_idx
 
         .bss
         .balign 64
@@ -1182,6 +1187,15 @@ main_render:
         mov     x3, FILE_MODE
         mov     x8, SYS_OPENAT
         svc     0
+        cmp     x0, 0
+        b.ge    main_render_open
+        mov     w0, 2
+        ldr     x1, =main_e_idx
+        mov     x2, MAIN_E_IDX_LEN
+        bl      tty_write_all
+        mov     w0, 2
+        bl      main_exit
+main_render_open:
         ldr     x9, =main_idxfd
         str     x0, [x9]
         bl      main_seed_sim
