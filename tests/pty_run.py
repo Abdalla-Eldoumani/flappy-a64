@@ -6,7 +6,10 @@
     --deadline S        hard limit in seconds; the child is killed past it (default 20)
     --key T:HEX         send bytes (hex) at T seconds; repeatable
     --resize T:CxR      change the window size at T seconds; repeatable
-    --kill T            send SIGTERM to the child at T seconds
+    --cc-off            every control character set to 0 (switched off) before exec, as the
+                        playground's TCGETS reports them
+    --kill T            send SIGTERM to the child's process group at T seconds, so a program
+                        that a wrapper shell runs gets it too
     --close T           close the master at T seconds, as closing the window does, then wait
                         for the child until the deadline
     --stall T:S         read nothing for S seconds from T; repeatable
@@ -25,9 +28,11 @@ def winsize(fd, cols, rows):
 
 def parse(argv):
     o = {"size": (144, 128), "deadline": 20.0, "events": [], "kill": None, "close": None,
-         "stalls": [], "delay": 0.0, "rsize": 65536, "out": "pty.out"}
+         "stalls": [], "delay": 0.0, "rsize": 65536, "out": "pty.out", "ccoff": False}
     i = 0
     while i < len(argv) and argv[i] != "--":
+        if argv[i] == "--cc-off":
+            o["ccoff"] = True; i += 1; continue
         a, v = argv[i], argv[i + 1] if i + 1 < len(argv) else ""
         if a == "--size":
             c, r = v.lower().split("x"); o["size"] = (int(c), int(r))
@@ -63,6 +68,10 @@ def main():
     pid, fd = pty.fork()
     if pid == 0:
         winsize(0, *o["size"])
+        if o["ccoff"]:
+            a = termios.tcgetattr(0)
+            a[6] = [0 if isinstance(c, int) else b"\0" for c in a[6]]
+            termios.tcsetattr(0, termios.TCSANOW, a)
         os.execvp(o["cmd"][0], o["cmd"])
     start = time.monotonic()
     cap, status, events, killed = bytearray(), None, list(o["events"]), False
@@ -76,8 +85,9 @@ def main():
                 os.write(fd, v)
             else:
                 winsize(fd, *v)
-        if o["kill"] is not None and not killed and now >= o["kill"]:
-            os.kill(pid, signal.SIGTERM); killed = True
+        # pty.fork made the child a session leader, so its group is its pid
+        if o["kill"] is not None and not killed and now >= o["kill"] and status is None:
+            os.killpg(pid, signal.SIGTERM); killed = True
         if o["close"] is not None and now >= o["close"]:
             os.close(fd)
             fired.append(f"close {o['close']} {len(cap)}")
