@@ -234,6 +234,11 @@ GFX_PLAN_RISE = 10
 GFX_PLAN_MEDAL = 12
 GFX_PLAN_PROMPT = 14
 GFX_PLAN_REC = GFX_PLAN_PROMPT + 2
+// s = 1 has a panel of its own, laid out in logical rows: label, number, label, number
+GFX_P1_L1 = 5
+GFX_P1_N1 = 15
+GFX_P1_L2 = 31
+GFX_P1_N2 = 41
 // s = 2 to 4 share one panel in display rows, in the small font: label, number, label, number,
 // its height and the medal's centre; each scale's logical rows are these times the scale
 GFX_TALL_L1 = 1
@@ -307,7 +312,8 @@ gfx_slide:
 // their panel grows to hold a label over each number
 gfx_plan:
         .hword  0, 0, 0, 0, 0, 0, 0, 0
-        .hword  5, 15, 31, 41, GFX_PANEL_H, 0, GFX_MEDAL_CY, GFX_PROMPT_Y
+        .hword  GFX_P1_L1, GFX_P1_N1, GFX_P1_L2, GFX_P1_N2, GFX_PANEL_H, 0, GFX_MEDAL_CY
+        .hword  GFX_PROMPT_Y
         .hword  GFX_P2_L1, GFX_P2_N1, GFX_P2_L2, GFX_P2_N2, GFX_P2_H, 0, GFX_P2_MEDAL, GFX_PROMPT_Y
         .hword  GFX_P3_L1, GFX_P3_N1, GFX_P3_L2, GFX_P3_N2, GFX_P3_H, GFX_RISE_S3, GFX_P3_MEDAL
         .hword  GFX_PROMPT_Y
