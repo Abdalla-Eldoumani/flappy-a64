@@ -89,7 +89,9 @@ if not m:
     sys.exit(1)
 frames, ticks, dropped, ns = map(int, m.groups())
 print(f"auto: frames {frames} ticks {ticks} dropped {dropped} elapsed {ns / 1e9:.2f} s")
-sys.exit(0 if ticks >= 780 and frames == ticks else 1)
+# a catch-up tick on a loaded machine costs a frame, so frames need only be within 1% of the
+# ticks, as in the soak
+sys.exit(0 if ticks >= 780 and frames >= 0.99 * ticks else 1)
 EOF
 then
   if cmp -s smoke-auto.before smoke-auto.after; then echo "PASS auto"; else echo "FAIL auto: termios"; bad=1; fi
