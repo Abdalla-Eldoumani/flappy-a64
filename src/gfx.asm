@@ -96,6 +96,7 @@ define(gfx_oy1_r, x26)
 define(gfx_oby_r, x26)
 define(gfx_oplan_r, x27)
 define(gfx_ol_r, x28)
+define(gfx_ospot_r, x28)
 define(gfx_pk_r, x19)
 define(gfx_pc_r, x20)
 define(gfx_ff_r, x25)
@@ -2271,18 +2272,16 @@ gfx_over_medal:
         b.ge    gfx_over_prompt
         lsr     x9, gfx_ost_r, GFX_SPARK_SHIFT
         and     x9, x9, GFX_SPOT_MASK
-        ldr     x10, =gfx_sparks
-        add     x10, x10, x9, lsl 1
-        ldrb    w11, [x10]
-        sub     x11, x11, GFX_SPARK_BIAS
-        ldr     x12, =gfx_scale
-        ldr     x12, [x12]
-        sdiv    x11, x11, x12
-        add     gfx_ocx_r, gfx_ocx_r, x11
-        ldrb    w11, [x10, 1]
-        sub     x11, x11, GFX_SPARK_BIAS
-        sdiv    x11, x11, x12
-        add     gfx_ocy_r, gfx_ocy_r, x11
+        ldr     gfx_ospot_r, =gfx_sparks
+        add     gfx_ospot_r, gfx_ospot_r, x9, lsl 1
+        ldrb    w0, [gfx_ospot_r]
+        sub     x0, x0, GFX_SPARK_BIAS
+        bl      gfx_d
+        add     gfx_ocx_r, gfx_ocx_r, x0
+        ldrb    w0, [gfx_ospot_r, 1]
+        sub     x0, x0, GFX_SPARK_BIAS
+        bl      gfx_d
+        add     gfx_ocy_r, gfx_ocy_r, x0
         ldr     x9, =gfx_sparkw
         ldr     x2, [x9]
         sub     x4, gfx_ocx_r, x2, lsr 1
