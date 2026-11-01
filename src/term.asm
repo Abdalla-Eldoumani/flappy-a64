@@ -712,14 +712,8 @@ term_small:
         bl      term_sizeline
         add     term_mrow_r, term_mrow_r, 1
         ldr     term_mtip_r, =term_s_tips
+        b       term_small_measure
 term_small_tip:
-        // each tip is a zero-terminated line, and an empty one ends them
-        mov     term_mlen_r, -1
-term_small_len:
-        add     term_mlen_r, term_mlen_r, 1
-        ldrb    w9, [term_mtip_r, term_mlen_r]
-        cbnz    w9, term_small_len
-        cbz     term_mlen_r, term_small_end
         mov     x0, term_mrow_r
         mov     x1, term_mlen_r
         bl      term_line
@@ -731,7 +725,14 @@ term_small_next:
         add     term_mtip_r, term_mtip_r, term_mlen_r
         add     term_mtip_r, term_mtip_r, 1
         add     term_mrow_r, term_mrow_r, 1
-        b       term_small_tip
+term_small_measure:
+        // each tip is a zero-terminated line, and an empty one ends them
+        mov     term_mlen_r, -1
+term_small_len:
+        add     term_mlen_r, term_mlen_r, 1
+        ldrb    w9, [term_mtip_r, term_mlen_r]
+        cbnz    w9, term_small_len
+        cbnz    term_mlen_r, term_small_tip
 term_small_end:
         bl      term_flush
         ldr     x9, =term_pen_fg
