@@ -16,8 +16,14 @@ finish() {
 trap finish EXIT
 echo 1 > .flappy_best
 
+# the run goes in the background so that an interrupt stops it at once instead of after ten
+# minutes; the EXIT trap still puts the best back
 timeout $((secs + 120)) python3 "$here/pty_run.py" --out soak.out --size 144x128 \
-  --deadline $((secs + 60)) --key "$secs:71" -- "$@" ./flappy --autopilot --stats > soak.status
+  --deadline $((secs + 60)) --key "$secs:71" -- "$@" ./flappy --autopilot --stats > soak.status &
+run=$!
+trap 'kill $run 2> /dev/null; exit 130' INT
+trap 'kill $run 2> /dev/null; exit 143' TERM
+wait $run
 python3 - soak.out soak.status <<'EOF'
 import re, sys
 d = open(sys.argv[1], "rb").read()
@@ -33,7 +39,14 @@ want = ns / 1e9 * 60
 off = abs(frames - want) / want
 print(f"soak: status {status.group(1)}, frames {frames}, ticks {ticks}, dropped {dropped}, "
       f"elapsed {ns / 1e9:.1f} s, {100 * off:.2f}% from 60 a second")
-sys.exit(0 if status.group(1) == "0" and off <= 0.01 else 1)
+bad = []
+if status.group(1) != "0":
+    bad.append(f"exit status {status.group(1)}")
+if off > 0.01:
+    bad.append(f"frames {100 * off:.2f}% from 60 a second, over 1%")
+if bad:
+    print("FAIL soak: " + ", ".join(bad))
+sys.exit(1 if bad else 0)
 EOF
 s=$?
 best=$(cat .flappy_best 2> /dev/null)
