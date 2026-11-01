@@ -90,13 +90,14 @@ def main():
             if status is None:
                 os.kill(pid, signal.SIGKILL)
             break
-        if now >= o["deadline"]:
+        # once reaped the pid may belong to no one, so only a live child is killed
+        if now >= o["deadline"] and status is None:
             os.kill(pid, signal.SIGKILL)
         if status is None:
             p, st = os.waitpid(pid, os.WNOHANG)
             if p:
                 status = os.waitstatus_to_exitcode(st)
-        if any(a <= now < a + d for a, d in o["stalls"]):
+        if now < o["deadline"] and any(a <= now < a + d for a, d in o["stalls"]):
             time.sleep(0.01)
             continue
         r, _, _ = select.select([fd], [], [], 0.01)
