@@ -1274,9 +1274,12 @@ main_resize_done:
         ret
 
 // main_stats_line(): frames ticks dropped elapsed_ns on stderr
+main_stats_line_alloc = -(16 + 8) & -16
+main_stats_line_dealloc = 0 - main_stats_line_alloc
+main_stats_line_out = 16
         .balign 4
 main_stats_line:
-        stp     fp, lr, [sp, -16]!
+        stp     fp, lr, [sp, main_stats_line_alloc]!
         mov     fp, sp
         ldr     x1, =main_line
         ldr     x9, =main_frames
@@ -1296,12 +1299,12 @@ main_stats_line:
         bl      main_fmt_dec
         mov     w9, 32
         strb    w9, [x0], 1
-        str     x0, [sp, -16]!
+        str     x0, [sp, main_stats_line_out]
         bl      main_clock
         ldr     x9, =main_start
         ldr     x9, [x9]
         sub     x0, x0, x9
-        ldr     x1, [sp], 16
+        ldr     x1, [sp, main_stats_line_out]
         bl      main_fmt_dec
         mov     w9, 10
         strb    w9, [x0], 1
@@ -1309,7 +1312,7 @@ main_stats_line:
         mov     w0, 2
         ldr     x1, =main_line
         bl      main_write
-        ldp     fp, lr, [sp], 16
+        ldp     fp, lr, [sp], main_stats_line_dealloc
         ret
 
 // main_play(): the interactive game, paced to 60 ticks a second by deadline
