@@ -56,12 +56,6 @@ TERM_BYTE_BITS = 0x38
 TERM_BYTE_MASK = 0xFF
 // every byte of a block's mask set: every cell is sent
 TERM_ALL_CELLS = -1
-// where the bench adds up each kind of byte in term_bsplit
-TERM_SPLIT_CURSOR = 0
-TERM_SPLIT_COLOUR = 8
-TERM_SPLIT_GLYPH = 16
-TERM_SPLIT_OTHER = 24
-TERM_SPLIT_BYTES = TERM_SPLIT_OTHER + 8
 // the notice's lines: what the terminal is, what the game needs, then four lines of how
 TERM_SMALL_LINES = 6
 // gfx_geo's entry for the largest scale, which is the smallest display: its columns and rows
