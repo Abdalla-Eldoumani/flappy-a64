@@ -1,5 +1,7 @@
 // term_: the terminal presenter. Two display pixels per cell with half blocks, 24-bit colour,
-// and only the cells that changed since the last frame are written.
+// and only the cells that changed since the last frame are written. The lite profile draws in
+// 256 colours instead: each slot is a palette index, so a palette change is an update of the
+// indexes whose colour changed and no cell is sent again.
 
 define(term_bt_r, x19)
 define(term_ft_r, x20)
@@ -85,6 +87,27 @@ TERM_TIPS = 4
 // gfx_geo's entry for the largest scale, which is the smallest display: its columns and rows
 TERM_GEO_MIN = GFX_SCALE_MAX * 8
 TERM_GEO_MIN_ROWS = TERM_GEO_MIN + 6
+// bit 0 of present_frame's flags: the palette changed
+TERM_PAL_CHANGED = 1
+// the lite profile's colours: slot s is palette index TERM_PAL_BASE + s, which leaves the
+// terminal's sixteen system colours alone, and "38;5;N" or "48;5;N" picks one, 5 for an index
+TERM_PAL_BASE = 16
+TERM_SGR_INDEX = ART_CHAR_0 + 5
+// an update is xterm's OSC 4: ESC ], a 4, a semicolon before each index and each colour, and ST
+// to end it, which is ESC and a backslash; a colour is rgb: and two hex digits per channel, split
+// by slashes
+TERM_OSC = 93
+TERM_ST = 92
+TERM_SLASH = 47
+// a palette entry holds red, green and blue in its low three bytes; the fourth is no colour
+TERM_CHANNEL_BITS = 8
+TERM_RGB_BITS = 3 * TERM_CHANNEL_BITS
+TERM_RGB_MASK = 0xFFFFFF
+TERM_NIBBLE_BITS = 4
+TERM_NIBBLE_MASK = 0xF
+// a hex digit from ten up is a letter: the digit plus this gives a for ten
+TERM_HEX_LETTER = 87
+TERM_SENT_BYTES = SLOT_COUNT * 4
 
         .section .rodata
 term_s_setup:
@@ -128,6 +151,20 @@ term_s_clear:
         .byte   TERM_ESC
         .ascii  "[1;1H"
 term_s_clear_end:
+// the lite profile's palette update opens with ESC ] 4 and gives each colour after ;rgb:, and
+// ESC ] 104 ST hands the terminal its own palette back; xterm.js and the headless xterm both
+// end an OSC at ST
+term_s_osc4:
+        .byte   TERM_ESC
+        .ascii  "]4"
+term_s_rgb:
+        .ascii  ";rgb:"
+term_s_unpal:
+        .byte   TERM_ESC
+        .ascii  "]104"
+term_s_st:
+        .byte   TERM_ESC, TERM_ST
+term_s_unpal_end:
 // space, full block, upper half, lower half, indexed by glyph: the space is one byte and each
 // block three UTF-8 bytes, each padded to a word
         .balign 4
@@ -163,12 +200,18 @@ TERM_RESET_LEN = term_s_clear - term_s_reset
 TERM_SMALL_LEN = term_s_small_end - term_s_small
 TERM_SMALL2_LEN = term_s_small2_end - term_s_small2
 TERM_TIPS_W = term_s_widest_end - term_s_widest - 1
+TERM_OSC4_LEN = term_s_rgb - term_s_osc4
+TERM_RGB_LEN = term_s_unpal - term_s_rgb
+TERM_UNPAL_LEN = term_s_unpal_end - term_s_unpal
+TERM_ST_LEN = term_s_unpal_end - term_s_st
 
         .bss
         .balign 16
 term_out:       .skip   TERM_OUT_SIZE
 term_fg:        .skip   TERM_COLOUR_BYTES
 term_bg:        .skip   TERM_COLOUR_BYTES
+// the lite profile's palette as the terminal was last sent it, or TERM_UNKNOWN per slot
+term_sent:      .skip   TERM_SENT_BYTES
 term_dec:       .skip   TERM_DEC_BYTES
 term_len:       .skip   8
         .balign 8
@@ -328,6 +371,16 @@ term_flush_write:
         str     x10, [x9]
         b       term_flush_done
 term_flush_gone:
+        // the lite profile still asks for the terminal's own palette back; that write fails
+        // too when the terminal is gone, which changes nothing
+        ldr     x9, =main_lite
+        ldr     x9, [x9]
+        cbz     x9, term_flush_exit
+        mov     w0, 1
+        ldr     x1, =term_s_unpal
+        mov     x2, TERM_UNPAL_LEN
+        bl      tty_write_all
+term_flush_exit:
         mov     w0, 0
         bl      main_exit
 term_flush_done:
@@ -360,6 +413,10 @@ term_bench_count_byte:
         mov     x14, 1
         b       term_bench_count_add
 term_bench_count_seq:
+        add     x15, x11, 1
+        ldrb    w12, [x9, x15]
+        cmp     w12, TERM_OSC
+        b.eq    term_bench_count_osc
         // an escape runs from ESC [ through its final byte, the first one from @ on
         add     x15, x11, 2
 term_bench_count_scan:
@@ -376,6 +433,17 @@ term_bench_count_scan:
         b.eq    term_bench_count_cursor
         cmp     w12, TERM_FINAL_SGR
         b.ne    term_bench_count_add
+        mov     x13, TERM_SPLIT_COLOUR
+        b       term_bench_count_add
+term_bench_count_osc:
+        // a palette update or restore runs to the ESC of its ST, and is colour
+        add     x15, x15, 1
+        ldrb    w12, [x9, x15]
+        cmp     w12, TERM_ESC
+        b.ne    term_bench_count_osc
+        add     x15, x15, TERM_ST_LEN
+        sub     x14, x15, x11
+        mov     x11, x15
         mov     x13, TERM_SPLIT_COLOUR
         b       term_bench_count_add
 term_bench_count_cursor:
@@ -492,7 +560,7 @@ term_build_dig:
         ldp     fp, lr, [sp], 16
         ret
 
-// term_colours(x0 = palette): rebuilds every slot's colour strings when the palette changes
+// term_colours(x0 = palette): rebuilds every slot's 24-bit colour strings when the palette changes
 term_colours_alloc = -(16 + 24) & -16
 term_colours_dealloc = 0 - term_colours_alloc
         .balign 4
@@ -524,6 +592,164 @@ term_colours_loop:
         ldp     fp, lr, [sp], term_colours_dealloc
         ret
 
+// term_index(x0 = record, w1 = 3 for fg or 4 for bg, x2 = palette index): "38;5;N"
+        .balign 4
+term_index:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        add     x9, x0, 1
+        strb    w1, [x9], 1
+        mov     w10, TERM_SGR_EXT
+        strb    w10, [x9], 1
+        mov     w10, TERM_SEMI
+        strb    w10, [x9], 1
+        mov     w10, TERM_SGR_INDEX
+        strb    w10, [x9], 1
+        mov     w10, TERM_SEMI
+        strb    w10, [x9], 1
+        ldr     x13, =term_dec
+        add     x13, x13, x2, lsl 2
+        ldrb    w14, [x13], 1
+        // an entry is a length and three digits, so one word moves any of them
+        ldr     w15, [x13]
+        str     w15, [x9]
+        add     x9, x9, x14
+        sub     x10, x9, x0
+        sub     x10, x10, 1
+        strb    w10, [x0]
+        ldp     fp, lr, [sp], 16
+        ret
+
+// term_indices(): the lite profile's colour strings, built once, since an update changes what
+// an index shows and never which index a slot is
+term_indices_alloc = -(16 + 8) & -16
+term_indices_dealloc = 0 - term_indices_alloc
+        .balign 4
+term_indices:
+        stp     fp, lr, [sp, term_indices_alloc]!
+        mov     fp, sp
+        str     x20, [sp, 16]
+        mov     term_c_r, 0
+term_indices_loop:
+        ldr     x0, =term_fg
+        mov     x9, TERM_REC
+        madd    x0, term_c_r, x9, x0
+        mov     w1, TERM_SGR_FG
+        add     x2, term_c_r, TERM_PAL_BASE
+        bl      term_index
+        ldr     x0, =term_bg
+        mov     x9, TERM_REC
+        madd    x0, term_c_r, x9, x0
+        mov     w1, TERM_SGR_BG
+        add     x2, term_c_r, TERM_PAL_BASE
+        bl      term_index
+        add     term_c_r, term_c_r, 1
+        cmp     term_c_r, SLOT_COUNT
+        b.lt    term_indices_loop
+        ldr     x20, [sp, 16]
+        ldp     fp, lr, [sp], term_indices_dealloc
+        ret
+
+// term_forget(): the terminal's palette is unknown, so the next update sends every slot
+        .balign 4
+term_forget:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =term_sent
+        mov     w10, TERM_UNKNOWN
+        mov     x11, 0
+term_forget_slot:
+        str     w10, [x9, x11, lsl 2]
+        add     x11, x11, 1
+        cmp     x11, SLOT_COUNT
+        b.lt    term_forget_slot
+        ldp     fp, lr, [sp], 16
+        ret
+
+// term_palette(x0 = palette): one OSC 4 for the slots whose colour is not the one last sent,
+// "ESC ] 4 ;N;rgb:rr/gg/bb ... ST"; nothing at all when every slot matches
+        .balign 4
+term_palette:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x1, =term_sent
+        ldr     x4, =term_dec
+        ldr     x2, =term_out
+        ldr     x3, =term_len
+        ldr     x3, [x3]
+        add     x2, x2, x3
+        // x2 writes, x3 is where the update would start
+        mov     x3, x2
+        mov     x5, 0
+term_palette_slot:
+        ldr     w7, [x0, x5, lsl 2]
+        and     w7, w7, TERM_RGB_MASK
+        ldr     w8, [x1, x5, lsl 2]
+        cmp     w7, w8
+        b.eq    term_palette_next
+        str     w7, [x1, x5, lsl 2]
+        cmp     x2, x3
+        b.ne    term_palette_pair
+        // the first changed slot opens the update; one word moves its three bytes
+        ldr     x9, =term_s_osc4
+        ldr     w10, [x9]
+        str     w10, [x2]
+        add     x2, x2, TERM_OSC4_LEN
+term_palette_pair:
+        mov     w10, TERM_SEMI
+        strb    w10, [x2], 1
+        add     x9, x5, TERM_PAL_BASE
+        add     x9, x4, x9, lsl 2
+        ldrb    w10, [x9], 1
+        ldr     w11, [x9]
+        str     w11, [x2]
+        add     x2, x2, x10
+        // ";rgb:" is five bytes, so one doubleword moves it and what follows overwrites the rest
+        ldr     x9, =term_s_rgb
+        ldr     x10, [x9]
+        str     x10, [x2]
+        add     x2, x2, TERM_RGB_LEN
+        // red, green and blue from the low byte up, two hex digits each
+        mov     w9, 0
+term_palette_hex:
+        lsr     w10, w7, w9
+        and     w10, w10, TERM_BYTE_MASK
+        lsr     w11, w10, TERM_NIBBLE_BITS
+        and     w12, w10, TERM_NIBBLE_MASK
+        add     w13, w11, ART_CHAR_0
+        add     w14, w11, TERM_HEX_LETTER
+        cmp     w11, TERM_DEC_BASE
+        csel    w11, w13, w14, lo
+        add     w13, w12, ART_CHAR_0
+        add     w14, w12, TERM_HEX_LETTER
+        cmp     w12, TERM_DEC_BASE
+        csel    w12, w13, w14, lo
+        strb    w11, [x2], 1
+        strb    w12, [x2], 1
+        add     w9, w9, TERM_CHANNEL_BITS
+        cmp     w9, TERM_RGB_BITS
+        b.ge    term_palette_next
+        mov     w10, TERM_SLASH
+        strb    w10, [x2], 1
+        b       term_palette_hex
+term_palette_next:
+        add     x5, x5, 1
+        cmp     x5, SLOT_COUNT
+        b.lt    term_palette_slot
+        cmp     x2, x3
+        b.eq    term_palette_done
+        ldr     x9, =term_s_st
+        ldrh    w10, [x9]
+        strh    w10, [x2]
+        add     x2, x2, TERM_ST_LEN
+        ldr     x9, =term_out
+        sub     x10, x2, x9
+        ldr     x9, =term_len
+        str     x10, [x9]
+term_palette_done:
+        ldp     fp, lr, [sp], 16
+        ret
+
 // present_open(x0 = logical w, x1 = logical h) -> w0 = scale 1..4, or 0 when the terminal is too small
 present_open_alloc = -(16 + 24) & -16
 present_open_dealloc = 0 - present_open_alloc
@@ -540,6 +766,12 @@ present_open:
         mov     x10, 1
         str     x10, [x9]
         bl      term_init
+        // the lite profile's colour strings never change, and its first frame sends the palette
+        ldr     x9, =main_lite
+        ldr     x9, [x9]
+        cbz     x9, term_open_setup
+        bl      term_indices
+        bl      term_forget
 term_open_setup:
         ldr     x9, =term_opened
         ldr     x10, [x9]
@@ -735,7 +967,8 @@ term_sizeline_done:
         ldp     fp, lr, [sp], term_sizeline_dealloc
         ret
 
-// term_small(): the too-small notice, centred; the next frame that fits repaints everything
+// term_small(): the too-small notice, centred; the next frame that fits repaints everything, and
+// in the lite profile sends the whole palette first, since the notice gave the terminal its own
 term_small_alloc = -(16 + 24) & -16
 term_small_dealloc = 0 - term_small_alloc
         .balign 4
@@ -820,6 +1053,14 @@ term_small_len:
         cbnz    w9, term_small_len
         cbnz    term_mlen_r, term_small_tip
 term_small_end:
+        ldr     x9, =main_lite
+        ldr     x9, [x9]
+        cbz     x9, term_small_flush
+        ldr     x0, =term_s_unpal
+        mov     x1, TERM_UNPAL_LEN
+        bl      term_put
+        bl      term_forget
+term_small_flush:
         bl      term_flush
         ldr     x9, =term_pen_fg
         mov     x10, TERM_UNKNOWN
@@ -851,7 +1092,7 @@ term_breathe_done:
         ret
 
 // present_frame(x0 = back, x1 = stride, x2 = palette, w3 = flags; bit 0 means the palette changed)
-present_frame_alloc = -(16 + 80 + 64) & -16
+present_frame_alloc = -(16 + 80 + 80) & -16
 present_frame_dealloc = 0 - present_frame_alloc
 present_frame_back = 96
 present_frame_front = 104
@@ -861,6 +1102,8 @@ present_frame_erow = 128
 present_frame_dw = 136
 present_frame_ox = 144
 present_frame_due = 152
+present_frame_pal = 160
+present_frame_send = 168
         .balign 4
         .global present_frame
 present_frame:
@@ -873,6 +1116,17 @@ present_frame:
         stp     x27, x28, [sp, 80]
         str     x0, [sp, present_frame_back]
         mov     term_stride_r, x1
+        str     x2, [sp, present_frame_pal]
+        str     xzr, [sp, present_frame_send]
+        ldr     x9, =main_lite
+        ldr     x9, [x9]
+        cbz     x9, term_pf_rgb
+        // indexed colour: a changed palette goes out as an update inside the frame, and the
+        // cells already on the screen take its colours without being sent again
+        and     w9, w3, TERM_PAL_CHANGED
+        str     x9, [sp, present_frame_send]
+        b       term_pf_pal
+term_pf_rgb:
         tbz     w3, 0, term_pf_pal
         mov     x0, x2
         bl      term_colours
@@ -893,14 +1147,27 @@ term_pf_pal:
         ldr     x9, =term_full
         mov     x10, 1
         str     x10, [x9]
+        // nor about the palette, which the lite profile then sends whole
+        ldr     x9, =main_lite
+        ldr     x9, [x9]
+        cbz     x9, term_pf_sync
+        str     x9, [sp, present_frame_send]
+        bl      term_forget
 term_pf_sync:
-        // synchronized output opens every frame; a frame that sends no cell takes it back
+        // synchronized output opens every frame; a frame that sends no cell and no palette takes
+        // it back
         ldr     x9, =term_len
         ldr     x10, [x9]
         str     x10, [sp, present_frame_mark]
         ldr     x0, =term_s_sync_on
         mov     x1, TERM_SYNC_ON_LEN
         bl      term_put
+        // the update comes before any cell, so the frame shows with its colours all at once
+        ldr     x9, [sp, present_frame_send]
+        cbz     x9, term_pf_front
+        ldr     x0, [sp, present_frame_pal]
+        bl      term_palette
+term_pf_front:
         ldr     x9, =term_last
         ldr     x10, [x9]
         str     x10, [sp, present_frame_front]
@@ -1230,6 +1497,11 @@ term_pf_rtest:
         ldr     x11, =term_len
         str     x10, [x11]
         cbnz    term_cells_r, term_pf_close
+        // a palette update with no cell to send still goes out
+        ldr     x12, [sp, present_frame_mark]
+        add     x12, x12, TERM_SYNC_ON_LEN
+        cmp     x10, x12
+        b.ne    term_pf_close
         // nothing changed, so nothing is written
         ldr     x10, [sp, present_frame_mark]
         str     x10, [x11]
@@ -1251,7 +1523,8 @@ term_pf_flush:
         ldp     fp, lr, [sp], present_frame_dealloc
         ret
 
-// present_close(): undoes the terminal setup in reverse order
+// present_close(): undoes the terminal setup in reverse order; the lite profile then gives the
+// terminal its own palette back
         .balign 4
         .global present_close
 present_close:
@@ -1270,6 +1543,13 @@ term_close_seq:
         ldr     x0, =term_s_restore
         mov     x1, TERM_RESTORE_LEN
         bl      term_put
+        ldr     x9, =main_lite
+        ldr     x9, [x9]
+        cbz     x9, term_close_flush
+        ldr     x0, =term_s_unpal
+        mov     x1, TERM_UNPAL_LEN
+        bl      term_put
+term_close_flush:
         bl      term_flush
 term_close_done:
         ldp     fp, lr, [sp], 16
