@@ -1,10 +1,10 @@
 // Runs dist/flappy-bundle.asm in a copy of the AArch64 Playground's emulator (build/playground-wasm).
 //   goldens   lint the bundle, then every headless golden must print byte-identical output
-//   envelope  the autopilot as a terminal program at 48x43, driven the way the terminal pane
-//             drives it, measured against the playground's refill rates and lifetime walls
+//   envelope  the autopilot as a terminal program at 48x43 (or SIZE), driven the way the terminal
+//             pane drives it, measured against the playground's refill rates and lifetime walls
 //   profile   with no --lite typed, the game takes the lite profile, and q ends it with exit 0
 //             and no error, which shows it made no syscall the playground lacks
-// usage, from build/: node ../tests/playground-check.mjs goldens|envelope [minutes]|profile
+// usage, from build/: node ../tests/playground-check.mjs goldens|envelope [minutes [size]]|profile
 import { createRequire } from 'node:module';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -61,8 +61,8 @@ function goldens() {
   return bad ? 1 : 0;
 }
 
-function envelope(minutes) {
-  const emu = load(['--autopilot', '--size', '48x43']);
+function envelope(minutes, size) {
+  const emu = load(['--autopilot', '--size', size]);
   emu.set_snapshots_paused(true);
   let ms = 0, steps = 0, seen = 0, peak = 0, limit = 0, chunks = 0, r;
   let secSteps = 0, secBytes = 0, secPeakBytes = 0, secPeakSteps = 0, secStart = 0;
@@ -184,7 +184,7 @@ function profile() {
 
 const mode = process.argv[2];
 if (mode === 'goldens') process.exit(goldens());
-if (mode === 'envelope') process.exit(envelope(Number(process.argv[3] || 15)));
+if (mode === 'envelope') process.exit(envelope(Number(process.argv[3] || 15), process.argv[4] || '48x43'));
 if (mode === 'profile') process.exit(profile());
-console.error('usage: playground-check.mjs goldens|envelope [minutes]|profile');
+console.error('usage: playground-check.mjs goldens|envelope [minutes [size]]|profile');
 process.exit(2);
