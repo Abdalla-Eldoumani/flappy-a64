@@ -125,4 +125,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # Ctrl-C ends the run quietly; closing the pty hangs up the child
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(130)
