@@ -6,6 +6,13 @@ set -u
 here=$(cd "$(dirname "$0")" && pwd)
 list=$(seq -s, 30 30 3600)
 bad=0
+# the autopilot reaches game over, so the player's best score is put aside and put back
+if [ -e .flappy_best ]; then mv .flappy_best encoder-best.real; fi
+finish() {
+  rm -f .flappy_best
+  if [ -e encoder-best.real ]; then mv encoder-best.real .flappy_best; fi
+}
+trap finish EXIT
 for size in 144x128 48x43; do
   d=enc-$size
   mkdir -p "$d"
