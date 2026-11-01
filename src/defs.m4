@@ -5,6 +5,7 @@
 //   .bss    main  display buffers 2 x 36864                     73728
 //                 flap list 4096 x 4, dump list 1024 x 4        20480
 //                 line, path, settings, debug text, bench        1248
+//                 sigaction for SIGTERM                            32
 //           gfx   logical scratch 240 x 256                     61440
 //                 static background                             36864
 //                 rotated bird, 69 boxes of 24 x 24             39744
@@ -14,14 +15,15 @@
 //                 division table, sprites, digits, tables        6344
 //           term  output buffer                                131072
 //                 colour strings 2 x 64 x 24, decimals, state    7256
+//                 palette last sent 64 x 4                        256
 //           art   palette, legend map                             392
 //           sim   state 26 x 8, masks 36 x 4                      352
-//           tty   termios x 2, input buffer, decoder              304
+//           tty   termios x 2, input buffer, decoder, sign        312
 //           save  ppm row buffer, header, best score              512
-//                 total                                        418264
+//                 total                                        418560
 //   .rodata art   palettes, sprites, fonts, UI words             8764
-//           rest  messages and tables                             940
-//                 total                                          9704
+//           rest  messages and tables                             956
+//                 total                                          9720
 
 define(fp, x29)
 define(lr, x30)
@@ -255,6 +257,9 @@ SLOT_CLEAR = 255
 // display, at scale 1
 GFX_MAX_BUF = LOG_W * LOG_H
 GFX_SCALE_MAX = 4
+// the lite profile's first scale, so its picture is never larger than s = 3; term fits the
+// picture from it, and gfx shows the title's zoom hint only above it, where zooming out helps
+TERM_LITE_FIRST = 3
 TERM_OUT_SIZE = 131072
 // the encoder checks for room only between rows, so the slack holds the longest row: at s = 1
 // a first cell of at most 49 bytes, 143 more of at most 45, and 16 that word stores write past
