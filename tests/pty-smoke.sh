@@ -51,11 +51,13 @@ verify keys 0 ""
 
 # each flap key alone must leave the title and keep a run going: pipes, and so the pipe body
 # colour of the day palette, reach the screen only in play. x is the control that must not.
+# The first pipe shows about 1.7 s into play; q waits over 3 s past the press that starts play,
+# so a loaded machine still gets there.
 pipe='118;196;52'
 flapkey() {
   local name=$1 hex=$2 want=$3
   session "$name" --deadline 30 --key 1.0:$hex --key 1.6:$hex --key 2.1:$hex --key 2.6:$hex \
-    --key 3.1:$hex --key 3.6:$hex --key 4.2:71 -- --seed 3
+    --key 3.1:$hex --key 3.6:$hex --key 5.2:71 -- --seed 3
   verify "$name" 0 ""
   local got=0
   grep -qa "$pipe" "smoke-$name.out" && got=1
