@@ -200,6 +200,16 @@ GFX_PANEL_LX = GFX_PANEL_X0 + 8
 GFX_PANEL_NX = GFX_PANEL_X1 - 8
 GFX_MEDAL_CX = GFX_PANEL_X0 + 22
 GFX_MEDAL_CY = 34
+// a gfx_plan record: label, number, label, number rows from the panel's top, its height, how far
+// it rests above the slide, the medal's centre row and the prompt's top edge
+GFX_PLAN_L1 = 0
+GFX_PLAN_N1 = 2
+GFX_PLAN_L2 = 4
+GFX_PLAN_N2 = 6
+GFX_PLAN_H = 8
+GFX_PLAN_RISE = 10
+GFX_PLAN_MEDAL = 12
+GFX_PLAN_PROMPT = 14
 GFX_DROP_LAST = 16
 GFX_DROP_BIAS = 32
 GFX_SLIDE_FROM = 16
@@ -239,13 +249,15 @@ gfx_drop:
 gfx_slide:
         .hword  256, 237, 220, 205, 190, 177, 166, 155, 146, 138, 131, 125, 120
         .hword  115, 111, 108, 106, 104, 102, 101, 101, 100, 100, 100, 100
-// per scale, the panel's rows from its top: label, number, label, number; s > 2 has no labels
+// per scale, the panel's layout (fields at GFX_PLAN_*): s3 and s4 repeat s2's rows of display
+// pixels, so their panel grows to hold a label over each number; s3 rises to keep clear of the
+// prompt, s4 has no room above, so the panel and the prompt go lower
 gfx_plan:
-        .hword  0, 0, 0, 0
-        .hword  5, 15, 31, 41
-        .hword  2, 16, 30, 44
-        .hword  6, 6, 33, 33
-        .hword  4, 4, 32, 32
+        .hword  0, 0, 0, 0, 0, 0, 0, 0
+        .hword  5, 15, 31, 41, GFX_PANEL_H, 0, GFX_MEDAL_CY, GFX_PROMPT_Y
+        .hword  2, 16, 30, 44, GFX_PANEL_H, 0, GFX_MEDAL_CY, GFX_PROMPT_Y
+        .hword  3, 24, 45, 66, 90, 28, 51, GFX_PROMPT_Y
+        .hword  4, 32, 60, 88, 120, 0, 68, 224
 // sparkle spots around the medal's centre, plus GFX_SPARK_BIAS to stay unsigned
 gfx_sparks:
         .byte   2, 2, 14, 4, 4, 14, 13, 13
@@ -2100,6 +2112,12 @@ gfx_over:
         csel    x9, x9, x10, lt
         ldr     x10, =gfx_slide
         ldrh    gfx_opy32_r, [x10, x9, lsl 1]
+        ldr     x9, =gfx_scale
+        ldr     x9, [x9]
+        ldr     gfx_oplan_r, =gfx_plan
+        add     gfx_oplan_r, gfx_oplan_r, x9, lsl 4
+        ldrh    w9, [gfx_oplan_r, GFX_PLAN_RISE]
+        sub     gfx_opy_r, gfx_opy_r, x9
         mov     x0, GFX_PANEL_X0
         bl      gfx_d
         mov     gfx_ox0_r, x0
@@ -2109,7 +2127,8 @@ gfx_over:
         mov     x0, gfx_opy_r
         bl      gfx_d
         mov     gfx_oy0_r, x0
-        add     x0, gfx_opy_r, GFX_PANEL_H
+        ldrh    w9, [gfx_oplan_r, GFX_PLAN_H]
+        add     x0, gfx_opy_r, x9
         bl      gfx_d
         mov     gfx_oy1_r, x0
         mov     x0, gfx_ob_r
@@ -2126,17 +2145,13 @@ gfx_over:
         sub     x4, gfx_oy1_r, 1
         mov     w5, SLOT_PANEL
         bl      gfx_rect
-        ldr     x9, =gfx_scale
-        ldr     x9, [x9]
-        ldr     gfx_oplan_r, =gfx_plan
-        add     gfx_oplan_r, gfx_oplan_r, x9, lsl 3
         mov     x0, GFX_PANEL_NX
         bl      gfx_d
         mov     gfx_ox1_r, x0
         mov     x0, GFX_PANEL_LX
         bl      gfx_d
         mov     gfx_ox0_r, x0
-        ldrh    w9, [gfx_oplan_r]
+        ldrh    w9, [gfx_oplan_r, GFX_PLAN_L1]
         add     x0, gfx_opy_r, x9
         bl      gfx_d
         mov     x3, x0
@@ -2147,7 +2162,7 @@ gfx_over:
         mov     x0, GFX_E_LSCORE
         bl      gfx_ui_w
         sub     gfx_ol_r, gfx_ox1_r, x0
-        ldrh    w9, [gfx_oplan_r]
+        ldrh    w9, [gfx_oplan_r, GFX_PLAN_L1]
         add     x0, gfx_opy_r, x9
         bl      gfx_d
         mov     x3, x0
@@ -2158,7 +2173,7 @@ gfx_over:
         mov     x0, GFX_E_LBEST
         bl      gfx_ui_w
         sub     gfx_ol_r, gfx_ox1_r, x0
-        ldrh    w9, [gfx_oplan_r, 4]
+        ldrh    w9, [gfx_oplan_r, GFX_PLAN_L2]
         add     x0, gfx_opy_r, x9
         bl      gfx_d
         mov     x3, x0
@@ -2178,7 +2193,7 @@ gfx_over_score:
         mov     x0, gfx_osh_r
         bl      gfx_numw
         sub     gfx_ol_r, gfx_ox1_r, x0
-        ldrh    w9, [gfx_oplan_r, 2]
+        ldrh    w9, [gfx_oplan_r, GFX_PLAN_N1]
         add     x0, gfx_opy_r, x9
         bl      gfx_d
         mov     x3, x0
@@ -2190,7 +2205,7 @@ gfx_over_score:
         ldr     x0, [x9]
         bl      gfx_numw
         sub     gfx_ol_r, gfx_ox1_r, x0
-        ldrh    w9, [gfx_oplan_r, 6]
+        ldrh    w9, [gfx_oplan_r, GFX_PLAN_N2]
         add     x0, gfx_opy_r, x9
         bl      gfx_d
         mov     gfx_oby_r, x0
@@ -2223,7 +2238,8 @@ gfx_over_medal:
         mov     x0, GFX_MEDAL_CX
         bl      gfx_d
         mov     gfx_ocx_r, x0
-        add     x0, gfx_opy_r, GFX_MEDAL_CY
+        ldrh    w9, [gfx_oplan_r, GFX_PLAN_MEDAL]
+        add     x0, gfx_opy_r, x9
         bl      gfx_d
         mov     gfx_ocy_r, x0
         ldr     x9, =gfx_medw
@@ -2264,7 +2280,7 @@ gfx_over_prompt:
         b.lt    gfx_over_done
         mov     x0, gfx_ob_r
         mov     x1, GFX_E_PRESS
-        mov     x2, GFX_PROMPT_Y
+        ldrh    w2, [gfx_oplan_r, GFX_PLAN_PROMPT]
         bl      gfx_ui_mid
 gfx_over_done:
         ldp     x19, x20, [sp, 16]
