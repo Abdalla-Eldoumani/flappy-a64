@@ -1533,7 +1533,6 @@ present_close:
         ldr     x9, =term_opened
         ldr     x10, [x9]
         cbz     x10, term_close_done
-        str     xzr, [x9]
         ldr     x9, =term_bad
         ldr     x10, [x9]
         cbz     x10, term_close_seq
@@ -1551,6 +1550,11 @@ term_close_seq:
         bl      term_put
 term_close_flush:
         bl      term_flush
+        // cleared only once the restore is out, so a SIGTERM in here lets present_abort send it
+        // whole; a copy already out does no harm, as each sequence sets a mode to a fixed value
+        // and a second ?1049l puts the cursor back on the spot the first one did
+        ldr     x9, =term_opened
+        str     xzr, [x9]
 term_close_done:
         ldp     fp, lr, [sp], 16
         ret
