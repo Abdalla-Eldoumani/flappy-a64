@@ -87,6 +87,9 @@ main_s_dbg_end:
 // the overlay's text holds every word above, five numbers and a zero; main_fmt_dec writes at
 // most MAIN_DEC_MAX characters for one number
 MAIN_DEC_MAX = 20
+// a dump path is the --dump-dir, a slash, a tick and .ppm with its zero, all in main_path
+MAIN_PPM_BYTES = main_s_end - main_s_ppm
+MAIN_DIR_MAX = MAIN_PATH_BYTES - MAIN_DEC_MAX - MAIN_PPM_BYTES - 1
 MAIN_DBG_NUMS = 5
 MAIN_DBG_BYTES = main_s_dbg_end - main_s_fps + MAIN_DBG_NUMS * MAIN_DEC_MAX + 1
 main_e_tty:
@@ -528,6 +531,10 @@ main_parse_dir:
         ldr     x1, =main_o_dumpdir
         bl      main_streq
         cbz     w0, main_parse_size
+        ldr     x0, [sp, main_parse_value]
+        bl      main_strlen
+        cmp     x0, MAIN_DIR_MAX
+        b.gt    main_parse_badv
         ldr     x9, [sp, main_parse_value]
         ldr     x10, =main_dumpdir
         str     x9, [x10]
