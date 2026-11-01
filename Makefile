@@ -60,12 +60,18 @@ tests/node_modules: tests/package.json tests/package-lock.json
 encoder: build/flappy tests/node_modules
 	cd build && bash ../tests/encoder.sh $(RUN)
 
+# the AArch64 Playground's emulator is not part of this repo; copy its wasm-node build to
+# build/playground-wasm to run these two, which otherwise say they were skipped
+PLAYGROUND := build/playground-wasm/aarch64_emulator.js
+
 playground: bundle
-	cd build && node ../tests/playground-check.mjs goldens
+	@if [ -f $(PLAYGROUND) ]; then cd build && node ../tests/playground-check.mjs goldens; \
+	else echo "playground: skipped, $(PLAYGROUND) is not there"; fi
 
 # long: plays until a playground wall or 15 virtual minutes, then reports the budget numbers
 envelope: bundle
-	cd build && node ../tests/playground-check.mjs envelope
+	@if [ -f $(PLAYGROUND) ]; then cd build && node ../tests/playground-check.mjs envelope; \
+	else echo "envelope: skipped, $(PLAYGROUND) is not there"; fi
 
 smoke: build/flappy tests/node_modules
 	cd build && bash ../tests/pty-smoke.sh $(RUN)
