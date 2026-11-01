@@ -11,12 +11,15 @@ define(save_score_r, x19)
 
 SAVE_BEST_READ = 32
 SAVE_BEST_MAX = 99999
+// the best score file holds the score in decimal
+SAVE_DEC_BASE = 10
 SAVE_LF = 10
 SAVE_CR = 13
 SAVE_SPACE = 32
 // a binary ppm opens with P6, then its width, height and largest colour value
 SAVE_PPM_P = 80
 SAVE_PPM_6 = ART_CHAR_0 + 6
+SAVE_PPM_MAX = 255
 // a ppm row is three bytes a pixel, and the widest display is the logical width
 SAVE_ROW_BYTES = LOG_W * 3
 // the ppm header, or the best score as read and as written, which are all far shorter
@@ -81,7 +84,7 @@ save_ppm:
         mov     w10, SAVE_LF
         strb    w10, [x0], 1
         mov     x1, x0
-        mov     x0, 255
+        mov     x0, SAVE_PPM_MAX
         bl      main_fmt_dec
         mov     w10, SAVE_LF
         strb    w10, [x0], 1
@@ -156,7 +159,7 @@ save_best_load:
         ldr     x11, =save_hdr
         mov     x12, 0
         mov     x0, 0
-        mov     x13, 10
+        mov     x13, SAVE_DEC_BASE
 save_best_load_digit:
         ldrb    w14, [x11, x12]
         sub     w15, w14, ART_CHAR_0
