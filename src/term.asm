@@ -130,6 +130,9 @@ term_s_tips:
 TERM_SETUP_LEN = term_s_setup_end - term_s_setup
 TERM_RESTORE_LEN = term_s_restore_end - term_s_restore
 TERM_CLEAR_LEN = term_s_clear_end - term_s_clear
+TERM_SYNC_ON_LEN = term_s_sync_off - term_s_sync_on
+TERM_SYNC_OFF_LEN = term_s_reset - term_s_sync_off
+TERM_RESET_LEN = term_s_clear - term_s_reset
 TERM_SMALL_LEN = term_s_small_end - term_s_small
 TERM_SMALL2_LEN = term_s_small2_end - term_s_small2
 
@@ -674,7 +677,7 @@ term_small:
         stp     x19, x20, [sp, 16]
         str     x21, [sp, 32]
         ldr     x0, =term_s_reset
-        mov     x1, 4
+        mov     x1, TERM_RESET_LEN
         bl      term_put
         ldr     x0, =term_s_clear
         mov     x1, TERM_CLEAR_LEN
@@ -793,7 +796,7 @@ term_pf_pal:
         mov     w0, 24
         bl      term_putc
         ldr     x0, =term_s_reset
-        mov     x1, 4
+        mov     x1, TERM_RESET_LEN
         bl      term_put
         ldr     x9, =term_full
         mov     x10, 1
@@ -804,7 +807,7 @@ term_pf_sync:
         ldr     x10, [x9]
         str     x10, [sp, present_frame_mark]
         ldr     x0, =term_s_sync_on
-        mov     x1, 8
+        mov     x1, TERM_SYNC_ON_LEN
         bl      term_put
         ldr     x9, =term_last
         ldr     x10, [x9]
@@ -815,7 +818,7 @@ term_pf_sync:
         str     xzr, [x9]
         str     xzr, [sp, present_frame_front]
         ldr     x0, =term_s_reset
-        mov     x1, 4
+        mov     x1, TERM_RESET_LEN
         bl      term_put
         bl      term_putesc
         ldr     x0, =term_bg
@@ -1141,7 +1144,7 @@ term_pf_rtest:
         b       term_pf_flush
 term_pf_close:
         ldr     x0, =term_s_sync_off
-        mov     x1, 8
+        mov     x1, TERM_SYNC_OFF_LEN
         bl      term_put
 term_pf_flush:
         bl      term_flush
