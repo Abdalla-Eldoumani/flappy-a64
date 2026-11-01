@@ -139,12 +139,15 @@ GFX_ANGLE_ROUND = GFX_ANGLE_STEP / 2
 // an outline pixel looks at its 3 x 3 neighbourhood
 GFX_RING_W = 3
 GFX_RING = GFX_RING_W * GFX_RING_W
+// an outlined sprite gains a pixel on each side, and its pixel (x, y) looks at the glyph from
+// (x - 2, y - 2), the ring around glyph pixel (x - 1, y - 1)
+GFX_RING_PAD = GFX_RING_W - 1
 GFX_BREATH = 200000
 GFX_MS = 1000000
 // a byte times this is that byte in all eight lanes of a word
 GFX_BYTES8 = 0x0101010101010101
 GFX_DIGITS = 10
-GFX_DIGIT_BYTES = (ART_BIG_W + 2) * (ART_BIG_H + 2)
+GFX_DIGIT_BYTES = (ART_BIG_W + GFX_RING_PAD) * (ART_BIG_H + GFX_RING_PAD)
 GFX_DIGITS_BYTES = GFX_DIGIT_BYTES * GFX_DIGITS
 // the city tile is the largest sprite decoded into the scratch sprite
 GFX_SPRITE_BYTES = ART_CITY_PX
@@ -199,7 +202,7 @@ GFX_WBITS = 4096
 // an outlined word is its bitmap plus a one-pixel ring; gfx_word refuses one that would not fit
 GFX_WORD_MAX = GFX_WBITS + 512
 // a small digit is one glyph of the larger font with its outline
-GFX_SDIGIT_BYTES = (ART_F5_W + 2) * (ART_F5_H + 2)
+GFX_SDIGIT_BYTES = (ART_F5_W + GFX_RING_PAD) * (ART_F5_H + GFX_RING_PAD)
 GFX_SDIGITS_BYTES = GFX_SDIGIT_BYTES * GFX_DIGITS
 GFX_MEDAL_BYTES = ART_MEDAL1 * ART_MEDAL1
 GFX_SPARK_BYTES = ART_SPARK1 * ART_SPARK1
@@ -680,9 +683,9 @@ gfx_outline_near:
         udiv    x10, gfx_k_r, x9
         msub    x11, x10, x9, gfx_k_r
         add     x3, gfx_x_r, x11
-        sub     x3, x3, 2
+        sub     x3, x3, GFX_RING_PAD
         add     x4, gfx_y_r, x10
-        sub     x4, x4, 2
+        sub     x4, x4, GFX_RING_PAD
         bl      gfx_on
         cbnz    x0, gfx_outline_put
         add     gfx_k_r, gfx_k_r, 1
@@ -692,15 +695,15 @@ gfx_outline_near:
 gfx_outline_put:
         strb    gfx_out32_r, [gfx_dst_r], 1
         add     gfx_x_r, gfx_x_r, 1
-        add     x9, gfx_w_r, 2
+        add     x9, gfx_w_r, GFX_RING_PAD
         cmp     gfx_x_r, x9
         b.lt    gfx_outline_px
-        add     x0, gfx_w_r, 2
+        add     x0, gfx_w_r, GFX_RING_PAD
         mov     x9, GFX_COST_OUTLINE
         mul     x0, x0, x9
         bl      gfx_breath
         add     gfx_y_r, gfx_y_r, 1
-        add     x9, gfx_h_r, 2
+        add     x9, gfx_h_r, GFX_RING_PAD
         cmp     gfx_y_r, x9
         b.lt    gfx_outline_row
         ldp     x19, x20, [sp, 16]
@@ -874,10 +877,10 @@ gfx_bake_digits:
         mov     gfx_step_r, ART_F3_STEP
         mov     gfx_adv_r, GFX_F3_ADV
 gfx_digits_size:
-        add     x9, gfx_gw_r, 2
+        add     x9, gfx_gw_r, GFX_RING_PAD
         ldr     x10, =gfx_digw
         str     x9, [x10]
-        add     x9, gfx_gh_r, 2
+        add     x9, gfx_gh_r, GFX_RING_PAD
         ldr     x10, =gfx_digh
         str     x9, [x10]
         ldr     x10, =gfx_digadv
@@ -1583,8 +1586,8 @@ gfx_word_ctest:
         mul     x9, gfx_ww_r, x13
         cmp     x9, GFX_WBITS
         b.hi    gfx_word_done
-        add     x10, gfx_ww_r, 2
-        add     x11, x13, 2
+        add     x10, gfx_ww_r, GFX_RING_PAD
+        add     x11, x13, GFX_RING_PAD
         mul     x10, x10, x11
         ldr     x11, [sp, gfx_word_room]
         cmp     x10, x11
@@ -1658,9 +1661,9 @@ gfx_word_test:
         ldr     w4, [sp, gfx_word_fill]
         ldr     w5, [sp, gfx_word_edge]
         bl      gfx_outline
-        add     x0, gfx_ww_r, 2
+        add     x0, gfx_ww_r, GFX_RING_PAD
         ldr     x1, [sp, gfx_word_h]
-        add     x1, x1, 2
+        add     x1, x1, GFX_RING_PAD
 gfx_word_done:
         ldp     x19, x20, [sp, 16]
         ldp     x21, x22, [sp, 32]
