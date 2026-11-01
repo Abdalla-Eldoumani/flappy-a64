@@ -135,7 +135,6 @@ GFX_ANGLE_STEP = 10
 GFX_ANGLES = (SIM_TILT_DRAW_MAX - SIM_TILT_MIN) / GFX_ANGLE_STEP + 1
 GFX_ANGLE_LAST = GFX_ANGLES - 1
 GFX_ANGLE_ROUND = GFX_ANGLE_STEP / 2
-GFX_CLEAR = SLOT_CLEAR
 // an outline pixel looks at its 3 x 3 neighbourhood
 GFX_RING_W = 3
 GFX_RING = GFX_RING_W * GFX_RING_W
@@ -385,7 +384,7 @@ gfx_span_done:
 gfx_mask:
         stp     fp, lr, [sp, -16]!
         mov     fp, sp
-        movi    v31.16b, GFX_CLEAR
+        movi    v31.16b, SLOT_CLEAR
         b       gfx_mask_test
 gfx_mask_wide:
         // sixteen pixels per compare and select, so a sprite row costs a few steps
@@ -401,7 +400,7 @@ gfx_mask_test:
         cbz     x2, gfx_mask_done
 gfx_mask_byte:
         ldrb    w9, [x1], 1
-        cmp     w9, GFX_CLEAR
+        cmp     w9, SLOT_CLEAR
         b.eq    gfx_mask_skip
         strb    w9, [x0]
 gfx_mask_skip:
@@ -503,7 +502,7 @@ gfx_tile_row:
         mov     x14, 0
 gfx_tile_px:
         ldrb    w15, [x12, x14]
-        cmp     w15, GFX_CLEAR
+        cmp     w15, SLOT_CLEAR
         b.eq    gfx_tile_next
         strb    w15, [x9, x13]
 gfx_tile_next:
@@ -550,7 +549,7 @@ gfx_shrink_row:
         mov     gfx_x_r, 0
         mov     x15, gfx_dst_r
 gfx_shrink_px:
-        mov     w0, GFX_CLEAR
+        mov     w0, SLOT_CLEAR
         mov     x1, -1
         add     x2, gfx_y_r, gfx_s_r
         cmp     x2, gfx_h_r
@@ -565,7 +564,7 @@ gfx_shrink_by:
         mov     x5, gfx_x_r
 gfx_shrink_bx:
         ldrb    w8, [x7, x5]
-        cmp     w8, GFX_CLEAR
+        cmp     w8, SLOT_CLEAR
         b.eq    gfx_shrink_bnext
         ldrb    w9, [x6, x8]
         cmp     x9, x1
@@ -685,7 +684,7 @@ gfx_outline_near:
         add     gfx_k_r, gfx_k_r, 1
         cmp     gfx_k_r, GFX_RING
         b.lt    gfx_outline_near
-        mov     gfx_out32_r, GFX_CLEAR
+        mov     gfx_out32_r, SLOT_CLEAR
 gfx_outline_put:
         strb    gfx_out32_r, [gfx_dst_r], 1
         add     gfx_x_r, gfx_x_r, 1
@@ -734,7 +733,7 @@ gfx_rot_px:
         asr     x11, x11, 1
         add     x12, x12, x2
         asr     x12, x12, 1
-        mov     w13, GFX_CLEAR
+        mov     w13, SLOT_CLEAR
         cmp     x11, x1
         b.hs    gfx_rot_put
         cmp     x12, x2
