@@ -85,8 +85,9 @@ sim_clear_pipes:
         mov     x11, 0
         b       sim_clear_test
 sim_clear_loop:
-        str     x10, [x9], 8
-        str     xzr, [x9], 8
+        str     x10, [x9]
+        str     xzr, [x9, SIM_PIPE_GAP]
+        add     x9, x9, SIM_PIPE_REC
         add     x11, x11, 1
 sim_clear_test:
         cmp     x11, SIM_PIPES
