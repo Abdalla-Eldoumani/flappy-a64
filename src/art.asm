@@ -163,18 +163,18 @@ art_bird2:
         .balign 4
         .global art_bird3
 art_bird3:
-        .ascii  "04155."
-        .ascii  "04156."
-        .ascii  "011770"
-        .ascii  ".0338."
-        .ascii  "01155."
-        .ascii  "04156."
-        .ascii  "044770"
-        .ascii  ".0338."
-        .ascii  "01155."
-        .ascii  "01156."
-        .ascii  "044770"
-        .ascii  ".0438."
+        .ascii  ".4000."
+        .ascii  "041156"
+        .ascii  "011177"
+        .ascii  ".0000."
+        .ascii  ".0000."
+        .ascii  "041156"
+        .ascii  "041177"
+        .ascii  ".0000."
+        .ascii  ".0000."
+        .ascii  "011156"
+        .ascii  "041177"
+        .ascii  ".4000."
 // scale 4: 5 x 3
         .balign 4
         .global art_bird4
