@@ -9,6 +9,13 @@ bad=0
 # group, so Ctrl-C reaches them at once
 trap 'exit 130' INT
 trap 'exit 143' TERM
+# the autopilot sessions reach game over, so the player's best score is put aside and put back
+if [ -e .flappy_best ]; then mv .flappy_best smoke-best.real; fi
+finish() {
+  rm -f .flappy_best
+  if [ -e smoke-best.real ]; then mv smoke-best.real .flappy_best; fi
+}
+trap finish EXIT
 
 # wraps the game so the capture shows its exit status and stty can compare the termios
 session() {
