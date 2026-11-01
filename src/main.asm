@@ -44,8 +44,6 @@ MAIN_SECOND = 1000000000
 // the debug numbers refresh twice a second; outlining the text costs too much per frame
 MAIN_DBG_FRAMES = 30
 MAIN_NUM_CAP = 1000000000000
-MAIN_IDX_FLAGS = O_WRONLY + O_CREAT + O_TRUNC
-MAIN_IDX_MODE = 420
 
         .section .rodata
 main_o_headless:    .asciz  "--headless"
@@ -1168,8 +1166,8 @@ main_render:
         stp     x22, x28, [sp, 16]
         mov     x0, AT_FDCWD
         ldr     x1, =main_s_idx
-        mov     x2, MAIN_IDX_FLAGS
-        mov     x3, MAIN_IDX_MODE
+        mov     x2, FILE_NEW
+        mov     x3, FILE_MODE
         mov     x8, SYS_OPENAT
         svc     0
         ldr     x9, =main_idxfd
