@@ -100,7 +100,8 @@ terminal pane.
     too small, quit, Ctrl-C and a kill.
   - best: the best score file is written, read back, and ignored when it is not a number.
   - harden: a slow terminal, a stalled one, one that closes, a closed pipe, no terminal at all,
-    sizes far too small and too large, and a best score file that cannot be written.
+    sizes far too small and too large, a best score file that cannot be written, and a
+    folder for frame dumps too long for the file path.
 - `make frames` renders named moments to PNGs and a contact sheet. It needs netpbm.
 - `make soak` plays on the autopilot for ten minutes. `make envelope` measures what a session
   costs in the playground.
