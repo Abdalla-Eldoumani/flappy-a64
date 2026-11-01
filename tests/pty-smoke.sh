@@ -87,6 +87,33 @@ verify ctrlc 0 ""
 session esc --deadline 30 --key 1.0:20 --key 2.0:1b -- --seed 3
 verify esc 0 ""
 
+# the lite profile sets the terminal's palette, so q, Ctrl-C and Esc each end with the restore
+# and then OSC 104, which gives the terminal its own palette back
+unpal='\x1b]104\x1b\\'
+for k in q:71 ctrlc:03 esc:1b; do
+  session "lite-${k%%:*}" --size 48x43 --deadline 30 --key 1.0:20 --key 2.0:20 --key "3.0:${k#*:}" \
+    -- --lite --seed 3
+  verify "lite-${k%%:*}" 0 "$unpal"
+done
+
+# the too-small notice gives the palette back when it replaces the picture, the picture's return
+# sends the game's palette again before it, and q on the notice ends like any other way out
+session lite-small --size 48x43 --deadline 30 --key 1.0:20 --resize 2.0:30x20 --resize 3.5:48x43 \
+  --resize 5.0:30x20 --key 6.5:71 -- --lite --seed 3
+verify lite-small 0 "$unpal"
+if python3 - smoke-lite-small.out <<'EOF'
+import sys
+d = open(sys.argv[1], "rb").read()
+osc4, unpal, notice = b"\x1b]4;", b"\x1b]104\x1b\\", b"terminal is"
+first = d.find(osc4)
+gone = d.find(unpal, first)
+back = d.find(osc4, gone)
+again = d.find(unpal, back)
+sys.exit(0 if 0 <= first < gone < back < again and notice in d[first:gone] and notice in d[back:again] else 1)
+EOF
+then echo "PASS lite-small: the palette goes back with the notice and returns with the picture"
+else echo "FAIL lite-small: no palette restore with the notice, or no palette before the picture's return"; bad=1; fi
+
 # end to end on the autopilot for 14 s; --stats prints after the terminal is restored
 session auto --deadline 40 --key 14.0:71 -- --autopilot --seed 3 --stats
 if python3 - smoke-auto.out <<'EOF'
