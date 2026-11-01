@@ -5,6 +5,10 @@
 set -u
 here=$(cd "$(dirname "$0")" && pwd)
 bad=0
+# an interrupt ends the run after the session it lands in; the sessions run in the foreground
+# group, so Ctrl-C reaches them at once
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # wraps the game so the capture shows its exit status and stty can compare the termios
 session() {
@@ -12,7 +16,7 @@ session() {
   local opts=()
   while [ "$1" != "--" ]; do opts+=("$1"); shift; done
   shift
-  timeout 60 python3 "$here/pty_run.py" --out "smoke-$name.out" "${opts[@]}" -- \
+  timeout --foreground 60 python3 "$here/pty_run.py" --out "smoke-$name.out" "${opts[@]}" -- \
     sh -c 'f="import fcntl, os; print(fcntl.fcntl(0, fcntl.F_GETFL) & os.O_NONBLOCK)"
       { stty -g; python3 -c "$f"; } > "smoke-$0.before"; "$@"; echo "EXIT=$?"
       { stty -g; python3 -c "$f"; } > "smoke-$0.after"' \
@@ -191,7 +195,7 @@ else
 fi
 
 # a kill leaves no chance to restore; the next session must still start and quit cleanly
-timeout 60 python3 "$here/pty_run.py" --out smoke-kill.out --deadline 20 --kill 2.0 \
+timeout --foreground 60 python3 "$here/pty_run.py" --out smoke-kill.out --deadline 20 --kill 2.0 \
   --key 1.0:20 -- "${RUNNER[@]}" ./flappy --seed 3 > smoke-kill.status
 if grep -q "^status -15$" smoke-kill.status; then echo "PASS kill (status -15)"
 else echo "FAIL kill: $(cat smoke-kill.status)"; bad=1; fi
