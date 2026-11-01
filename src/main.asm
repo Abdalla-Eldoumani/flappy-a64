@@ -49,6 +49,18 @@ MAIN_SECOND = 1000000000
 // the debug numbers refresh twice a second; outlining the text costs too much per frame
 MAIN_DBG_FRAMES = 30
 MAIN_NUM_CAP = 1000000000000
+// the characters of the text main reads and writes: --flaps and --dump-frames split ticks by
+// commas and --size takes columns x rows, where setting MAIN_LOWER on the x accepts an X too;
+// output lines split fields by spaces, and a dump path puts a slash after its folder
+MAIN_LF = 10
+MAIN_SPACE = 32
+MAIN_COMMA = 44
+MAIN_MINUS = 45
+MAIN_SLASH = 47
+MAIN_X = 120
+MAIN_LOWER = 32
+// a hex digit from ten up is a letter: the digit plus this gives a for ten
+MAIN_HEX_LETTER = 87
 
         .section .rodata
 main_o_headless:    .asciz  "--headless"
@@ -94,17 +106,17 @@ MAIN_DBG_NUMS = 5
 MAIN_DBG_BYTES = main_s_dbg_end - main_s_fps + MAIN_DBG_NUMS * MAIN_DEC_MAX + 1
 main_e_tty:
         .ascii  "flappy: stdin is not a terminal; --headless and --render-out run without one"
-        .byte   10
+        .byte   MAIN_LF
 main_e_tty_end:
 main_e_arg:         .ascii  "flappy: bad argument: "
 main_e_arg_end:
 main_e_small:
         .ascii  "flappy: the --size given is too small, the game needs 36x32"
-        .byte   10
+        .byte   MAIN_LF
 main_e_small_end:
 main_e_idx:
         .ascii  "flappy: cannot write render.idx here"
-        .byte   10
+        .byte   MAIN_LF
 main_e_idx_end:
 
 MAIN_E_TTY_LEN = main_e_tty_end - main_e_tty
@@ -216,8 +228,8 @@ main_num_digit:
         add     x1, x1, 1
 main_num_test:
         ldrb    w9, [x1]
-        sub     w10, w9, 48
-        cmp     w10, 9
+        sub     w10, w9, ART_CHAR_0
+        cmp     w10, ART_DIGIT_LAST
         b.ls    main_num_digit
         ldp     fp, lr, [sp], 16
         ret
@@ -246,7 +258,7 @@ main_fmt_dec:
         stp     fp, lr, [sp, main_fmt_alloc]!
         mov     fp, sp
         tbz     x0, 63, main_fmt_pos
-        mov     w9, 45
+        mov     w9, MAIN_MINUS
         strb    w9, [x1], 1
         neg     x0, x0
 main_fmt_pos:
@@ -256,7 +268,7 @@ main_fmt_pos:
 main_fmt_split:
         udiv    x12, x0, x11
         msub    x13, x12, x11, x0
-        add     w13, w13, 48
+        add     w13, w13, ART_CHAR_0
         strb    w13, [x9, x10]
         add     x10, x10, 1
         mov     x0, x12
@@ -279,8 +291,8 @@ main_fmt_hex:
 main_hex_loop:
         lsr     x10, x0, x9
         and     x10, x10, 15
-        add     x11, x10, 48
-        add     x12, x10, 87
+        add     x11, x10, ART_CHAR_0
+        add     x12, x10, MAIN_HEX_LETTER
         cmp     x10, 10
         csel    x10, x11, x12, lt
         strb    w10, [x1], 1
@@ -349,7 +361,7 @@ main_badarg:
         mov     x1, main_arg_r
         bl      tty_write_all
         ldr     x1, =main_line
-        mov     w9, 10
+        mov     w9, MAIN_LF
         strb    w9, [x1]
         mov     w0, 2
         mov     x2, 1
@@ -382,7 +394,7 @@ main_list_loop:
         add     main_cnt_r, main_cnt_r, 1
         ldrb    w9, [x1]
         add     main_arg_r, x1, 1
-        cmp     w9, 44
+        cmp     w9, MAIN_COMMA
         b.eq    main_list_loop
         cbz     w9, main_list_done
 main_list_bad:
@@ -554,8 +566,8 @@ main_parse_size:
         cbz     w2, main_parse_badv
         cbz     x0, main_parse_badv
         ldrb    w9, [x1]
-        orr     w9, w9, 32
-        cmp     w9, 120
+        orr     w9, w9, MAIN_LOWER
+        cmp     w9, MAIN_X
         b.ne    main_parse_badv
         ldr     x10, =main_size_c
         str     x0, [x10]
@@ -653,33 +665,33 @@ main_status:
         ldr     x1, =main_line
         bl      main_fmt_dec
         ldr     main_sim_r, =sim_s
-        mov     w9, 32
+        mov     w9, MAIN_SPACE
         strb    w9, [x0], 1
         mov     x1, x0
         ldr     x0, [main_sim_r, SIM_SCORE]
         bl      main_fmt_dec
-        mov     w9, 32
+        mov     w9, MAIN_SPACE
         strb    w9, [x0], 1
         mov     x1, x0
         ldr     x0, [main_sim_r, SIM_Y]
         bl      main_fmt_dec
-        mov     w9, 32
+        mov     w9, MAIN_SPACE
         strb    w9, [x0], 1
         mov     x1, x0
         ldr     x0, [main_sim_r, SIM_VY]
         bl      main_fmt_dec
-        mov     w9, 32
+        mov     w9, MAIN_SPACE
         strb    w9, [x0], 1
         mov     x1, x0
         ldr     x0, [main_sim_r, SIM_STATE]
         bl      main_fmt_dec
-        mov     w9, 32
+        mov     w9, MAIN_SPACE
         strb    w9, [x0], 1
         str     x0, [sp, main_status_end]
         bl      sim_hash
         ldr     x1, [sp, main_status_end]
         bl      main_fmt_hex
-        mov     w9, 10
+        mov     w9, MAIN_LF
         strb    w9, [x0], 1
         mov     x2, x0
         mov     w0, 1
@@ -727,19 +739,19 @@ main_hl_test:
         mov     x1, x0
         mov     x0, main_t_r
         bl      main_fmt_dec
-        mov     w9, 32
+        mov     w9, MAIN_SPACE
         strb    w9, [x0], 1
         mov     x1, x0
         ldr     x9, =sim_s
         ldr     x0, [x9, SIM_SCORE]
         bl      main_fmt_dec
-        mov     w9, 32
+        mov     w9, MAIN_SPACE
         strb    w9, [x0], 1
         str     x0, [sp, main_headless_end]
         bl      sim_hash
         ldr     x1, [sp, main_headless_end]
         bl      main_fmt_hex
-        mov     w9, 10
+        mov     w9, MAIN_LF
         strb    w9, [x0], 1
         mov     x2, x0
         mov     w0, 1
@@ -783,7 +795,7 @@ main_dump_path:
         mov     x0, x1
         mov     x1, x9
         bl      main_cpy
-        mov     w10, 47
+        mov     w10, MAIN_SLASH
         strb    w10, [x0], 1
         mov     x1, x0
 main_dump_name:
@@ -1162,7 +1174,7 @@ main_bench_test:
         ldr     x1, =main_s_both
         ldr     x2, [main_bv_r, TERM_SPLIT_OTHER]
         bl      main_putavg
-        mov     w9, 10
+        mov     w9, MAIN_LF
         strb    w9, [x0], 1
         mov     x2, x0
         ldr     x1, =main_line
@@ -1228,13 +1240,13 @@ main_render_idx:
         mov     x0, main_t_r
         ldr     x1, =main_line
         bl      main_fmt_dec
-        mov     w9, 32
+        mov     w9, MAIN_SPACE
         strb    w9, [x0], 1
         mov     x1, x0
         ldr     x9, =term_total
         ldr     x0, [x9]
         bl      main_fmt_dec
-        mov     w9, 10
+        mov     w9, MAIN_LF
         strb    w9, [x0], 1
         mov     x2, x0
         ldr     x9, =main_idxfd
@@ -1311,19 +1323,19 @@ main_stats_line:
         ldr     x9, =main_frames
         ldr     x0, [x9]
         bl      main_fmt_dec
-        mov     w9, 32
+        mov     w9, MAIN_SPACE
         strb    w9, [x0], 1
         mov     x1, x0
         ldr     x9, =main_simticks
         ldr     x0, [x9]
         bl      main_fmt_dec
-        mov     w9, 32
+        mov     w9, MAIN_SPACE
         strb    w9, [x0], 1
         mov     x1, x0
         ldr     x9, =main_dropped
         ldr     x0, [x9]
         bl      main_fmt_dec
-        mov     w9, 32
+        mov     w9, MAIN_SPACE
         strb    w9, [x0], 1
         str     x0, [sp, main_stats_line_out]
         bl      main_clock
@@ -1332,7 +1344,7 @@ main_stats_line:
         sub     x0, x0, x9
         ldr     x1, [sp, main_stats_line_out]
         bl      main_fmt_dec
-        mov     w9, 10
+        mov     w9, MAIN_LF
         strb    w9, [x0], 1
         mov     x2, x0
         mov     w0, 2
