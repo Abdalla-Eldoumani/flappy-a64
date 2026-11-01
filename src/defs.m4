@@ -258,7 +258,7 @@ GFX_SCALE_MAX = 4
 TERM_OUT_SIZE = 131072
 // the encoder checks for room only between rows, so the slack holds the longest row: at s = 1
 // a first cell of at most 49 bytes, 143 more of at most 45, and 16 that word stores write past
-// the end, under 6.5 KB
+// the end: 6,500 bytes at most
 TERM_OUT_SLACK = 8192
 // where the bench adds up each kind of byte in term_bsplit, which main prints per frame
 TERM_SPLIT_CURSOR = 0
