@@ -125,8 +125,7 @@ def main():
 
 
 if __name__ == "__main__":
-    # Ctrl-C ends the run quietly; closing the pty hangs up the child
-    try:
-        main()
-    except KeyboardInterrupt:
-        sys.exit(130)
+    # Ctrl-C ends the run at once, before a second one can land in the interpreter's shutdown;
+    # the pty closes with the process and hangs up the child
+    signal.signal(signal.SIGINT, lambda *_: os._exit(130))
+    main()
