@@ -64,8 +64,10 @@ encoder: build/flappy tests/node_modules
 # build/playground-wasm to run these two, which otherwise say they were skipped
 PLAYGROUND := build/playground-wasm/aarch64_emulator.js
 
+# the headless goldens, then the profile the game picks there with nothing typed
 playground: bundle
-	@if [ -f $(PLAYGROUND) ]; then cd build && node ../tests/playground-check.mjs goldens; \
+	@if [ -f $(PLAYGROUND) ]; then cd build && node ../tests/playground-check.mjs goldens && \
+	node ../tests/playground-check.mjs profile; \
 	else echo "playground: skipped, $(PLAYGROUND) is not there"; fi
 
 # long: plays until a playground wall or 15 virtual minutes, then reports the budget numbers
