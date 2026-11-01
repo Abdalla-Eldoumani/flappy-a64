@@ -1554,3 +1554,24 @@ term_close_flush:
 term_close_done:
         ldp     fp, lr, [sp], 16
         ret
+
+// present_abort(): present_close for a signal, which can land anywhere: the frame being built is
+// dropped, CAN ends a sequence a cut write may have left open, and synchronized output is taken
+// back in case the frame had begun to go out
+        .balign 4
+        .global present_abort
+present_abort:
+        stp     fp, lr, [sp, -16]!
+        mov     fp, sp
+        ldr     x9, =term_len
+        str     xzr, [x9]
+        ldr     x9, =term_bad
+        str     xzr, [x9]
+        mov     w0, TERM_CAN
+        bl      term_putc
+        ldr     x0, =term_s_sync_off
+        mov     x1, TERM_SYNC_OFF_LEN
+        bl      term_put
+        bl      present_close
+        ldp     fp, lr, [sp], 16
+        ret
