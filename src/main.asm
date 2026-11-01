@@ -32,6 +32,11 @@ MAIN_T_N = 24
 MAIN_T_BYTES = MAIN_T_N + 8
 MAIN_FLAP_MAX = 4096
 MAIN_DUMP_MAX = 1024
+// both lists hold 32-bit ticks
+MAIN_FLAPS_BYTES = MAIN_FLAP_MAX * 4
+MAIN_DUMPS_BYTES = MAIN_DUMP_MAX * 4
+MAIN_LINE_BYTES = 256
+MAIN_PATH_BYTES = 512
 MAIN_PERIOD = 16666667
 MAIN_PERIOD3 = 16666666
 MAIN_CATCHUP = 5
@@ -103,10 +108,10 @@ MAIN_E_SMALL_LEN = main_e_small_end - main_e_small
         .balign 64
 main_bufa:      .skip   GFX_MAX_BUF
 main_bufb:      .skip   GFX_MAX_BUF
-main_flaps:     .skip   16384
-main_dumps:     .skip   4096
-main_line:      .skip   256
-main_path:      .skip   512
+main_flaps:     .skip   MAIN_FLAPS_BYTES
+main_dumps:     .skip   MAIN_DUMPS_BYTES
+main_line:      .skip   MAIN_LINE_BYTES
+main_path:      .skip   MAIN_PATH_BYTES
 main_ts:        .skip   16
         .balign 8
         .global main_size_c
