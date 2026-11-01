@@ -100,6 +100,23 @@ define(gfx_pk_r, x19)
 define(gfx_pc_r, x20)
 define(gfx_ff_r, x25)
 
+// gfx_geo per scale s: width LOG_W / s, height rounded up, a row stride rounded up to 16 bytes,
+// and cell rows of two pixels each
+GFX_ROW_ALIGN = -16
+GFX_G1_S = (LOG_W + 15) & GFX_ROW_ALIGN
+GFX_G1_R = (LOG_H + 1) / 2
+GFX_G2_W = LOG_W / 2
+GFX_G2_H = (LOG_H + 1) / 2
+GFX_G2_S = (GFX_G2_W + 15) & GFX_ROW_ALIGN
+GFX_G2_R = (GFX_G2_H + 1) / 2
+GFX_G3_W = LOG_W / 3
+GFX_G3_H = (LOG_H + 2) / 3
+GFX_G3_S = (GFX_G3_W + 15) & GFX_ROW_ALIGN
+GFX_G3_R = (GFX_G3_H + 1) / 2
+GFX_G4_W = LOG_W / 4
+GFX_G4_H = (LOG_H + 3) / 4
+GFX_G4_S = (GFX_G4_W + 15) & GFX_ROW_ALIGN
+GFX_G4_R = (GFX_G4_H + 1) / 2
 GFX_DIV_OFF = 512
 GFX_DIV_LO = -512
 GFX_DIV_MAX = 511
@@ -238,10 +255,10 @@ GFX_TINT_SHIFT = 6
         .global gfx_geo
 gfx_geo:
         .hword  0, 0, 0, 0
-        .hword  144, 256, 144, 128
-        .hword  72, 128, 80, 64
-        .hword  48, 86, 48, 43
-        .hword  36, 64, 48, 32
+        .hword  LOG_W, LOG_H, GFX_G1_S, GFX_G1_R
+        .hword  GFX_G2_W, GFX_G2_H, GFX_G2_S, GFX_G2_R
+        .hword  GFX_G3_W, GFX_G3_H, GFX_G3_S, GFX_G3_R
+        .hword  GFX_G4_W, GFX_G4_H, GFX_G4_S, GFX_G4_R
 // GAME OVER's top edge for each tick of its drop, plus GFX_DROP_BIAS: a fall, then a bounce
 gfx_drop:
         .hword  8, 9, 10, 14, 18, 23, 30, 38, 47, 57, 69, 82, 78, 76, 77, 80, 82
