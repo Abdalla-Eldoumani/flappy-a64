@@ -16,14 +16,15 @@ const CHUNK = 1000000;
 const STEP_RATE = 1000000, BYTE_RATE = 100000;
 const STEP_START = 10000000, STEP_CAP = 200000000;
 const BYTE_START = 4 * 1024 * 1024, BYTE_CAP = 4 * 1024 * 1024;
-const STEP_WALL = STEP_START + STEP_CAP, BYTE_WALL = BYTE_START + BYTE_CAP;
+const NS = 1e9;
 
 // A budget starts full, gains `refill` per second slept until `cap` of refunds is spent, and the
-// program spends `rate` per second; returns the seconds until it runs dry.
+// program spends `rate` per second; returns the seconds until it runs dry. A refund never lifts
+// the budget above full, so a program under the refill banks nothing for later.
 function lasts(start, refill, cap, rate) {
   const refunding = cap / refill;
   if (rate > refill && start / (rate - refill) <= refunding) return start / (rate - refill);
-  return refunding + (start + (refill - rate) * refunding) / rate;
+  return refunding + (start - Math.max(0, rate - refill) * refunding) / rate;
 }
 
 function load(args) {
@@ -64,6 +65,9 @@ function envelope(minutes) {
   let ms = 0, steps = 0, seen = 0, peak = 0, limit = 0, chunks = 0, r;
   let secSteps = 0, secBytes = 0, secPeakBytes = 0, secPeakSteps = 0, secStart = 0;
   let stepWallAt = null, byteWallAt = null;
+  // each budget as the emulator keeps it: what was spent less what sleeps refunded, never less
+  // than nothing, and the bytes are refunded only by a sleep that refunds steps
+  let stepUsed = 0, byteUsed = 0, stepBack = 0, byteBack = 0;
   const stop = minutes * 60000;
   do {
     r = emu.run_until_break(CHUNK);
@@ -77,8 +81,19 @@ function envelope(minutes) {
     secBytes += b;
     peak = Math.max(peak, r.steps_executed);
     if (r.steps_executed >= CHUNK) limit++;
-    if (stepWallAt === null && steps >= STEP_WALL) stepWallAt = ms;
-    if (byteWallAt === null && seen >= BYTE_WALL) byteWallAt = ms;
+    stepUsed += r.steps_executed;
+    byteUsed += b;
+    if (stepWallAt === null && stepUsed > STEP_START) stepWallAt = ms;
+    if (byteWallAt === null && byteUsed > BYTE_START) byteWallAt = ms;
+    const ns = Math.round((r.sleep_ms || 0) * 1e6);
+    const stepRefund = Math.min(Math.floor(ns * STEP_RATE / NS), STEP_CAP - stepBack);
+    stepBack += stepRefund;
+    stepUsed = Math.max(0, stepUsed - stepRefund);
+    if (stepRefund > 0) {
+      const byteRefund = Math.min(Math.floor(ns * BYTE_RATE / NS), BYTE_CAP - byteBack);
+      byteBack += byteRefund;
+      byteUsed = Math.max(0, byteUsed - byteRefund);
+    }
     ms += r.sleep_ms || 0;
     if (ms - secStart >= 1000) {
       secPeakBytes = Math.max(secPeakBytes, secBytes);
@@ -100,8 +115,8 @@ function envelope(minutes) {
   console.log(`peak steps between two sleeps: ${peak}; chunks at the ${CHUNK}-step stop: ${limit}`);
   // the walls below are this script's model of the budgets; the emulator's own stop is what counts
   if (r.error) console.log(`the emulator stopped it at ${secs.toFixed(1)} s, after ${seen} bytes and ${steps} steps`);
-  console.log(`model step wall (${STEP_WALL}) reached at: ${stepWallAt === null ? 'not reached' : (stepWallAt / 1000).toFixed(1) + ' s'}`);
-  console.log(`model output wall (${BYTE_WALL}) reached at: ${byteWallAt === null ? 'not reached' : (byteWallAt / 1000).toFixed(1) + ' s'}`);
+  console.log(`model step budget (${STEP_START}, refunds up to ${STEP_CAP}) ran out at: ${stepWallAt === null ? 'not reached' : (stepWallAt / 1000).toFixed(1) + ' s'}`);
+  console.log(`model output budget (${BYTE_START}, refunds up to ${BYTE_CAP}) ran out at: ${byteWallAt === null ? 'not reached' : (byteWallAt / 1000).toFixed(1) + ' s'}`);
   console.log(`step budget lasts ${(stepLife / 60).toFixed(1)} min, output budget ${(byteLife / 60).toFixed(1)} min at these rates`);
   console.log(`projected session length: ${projected.toFixed(1)} minutes (observed stop at ${(secs / 60).toFixed(1)} min${r.error || r.halted ? '' : ', still running'})`);
   // steps and bytes under 90% of their refill on average, no second that writes more than a
