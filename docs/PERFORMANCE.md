@@ -11,7 +11,7 @@ Run them from `build/`.
 
 | Name | Command | Reports |
 |---|---|---|
-| E | `node ../tests/playground-check.mjs envelope 1` | The game as the AArch64 Playground's terminal pane runs it: lite profile, s = 3 at 48x43, for 60 s of virtual time or until a wall stops it. Steps and output bytes per second, against the playground's refill of 1,000,000 steps and 100,000 bytes a second. |
+| E | `node ../tests/playground-check.mjs envelope 1` | The game as the AArch64 Playground's terminal pane runs it: lite profile, s = 3 at 48x43, for 60 s of virtual time or until a wall stops it. Steps and output bytes per second, against the playground's refill of 1,000,000 steps and 100,000 bytes a second. A size after the minutes, as in `envelope 1 144x128`, runs it in a terminal of that size. |
 | B1 | `qemu-aarch64 ./flappy --bench --ticks 3600 --autopilot --seed 7 --size 144x128` | Bytes per rendered frame at s = 1 in the full profile, split into cursor moves, colour codes, glyphs and the rest. |
 | B3 | `qemu-aarch64 ./flappy --bench --ticks 3600 --autopilot --seed 7 --size 48x43 --lite` | The same at s = 3 in the lite profile, which renders every second tick and draws with palette indexes. |
 | N | `./flappy --bench --ticks 3600 --autopilot --seed 7 --size 144x128`, built natively | Time per rendered frame on a native aarch64 Linux server, the mean of three runs. It is wall time from the monotonic clock, so it bounds the CPU time from above. |
@@ -48,12 +48,13 @@ before and 22.90 us after.
 | Lite renders every third tick instead of every second | B3 | 1,800 frames of 3,938 bytes, 7.09 MB | 1,200 frames of 5,810 bytes, 6.97 MB | dropped: a pipe edge crosses a cell boundary 20 times a second at either rate, so the bytes barely move and the motion gets choppier |
 | The lite profile draws with palette indexes 16 to 79, set once with OSC 4, and a palette change (day and night, the bird's colours, a fade, the flash) is an OSC 4 update of the slots that changed instead of a full repaint | E | 869,068 steps/s (86.9%), 117,602 B/s (117.6%), busiest second 133,154 bytes | 857,727 steps/s (85.8%), 78,854 B/s (78.9%), busiest second 89,494 bytes | kept: the bytes target is met, and the full profile writes the same bytes as before (B1 16,577) |
 | The same change | B3 | 3,822 bytes a frame, colour codes 3,076; 23 full repaints at 48x43 | 2,429 bytes a frame, colour codes 1,721; 1 full repaint, the first frame | |
+| The lite profile draws no larger than s = 3, so a terminal with room for s = 1 or s = 2 gets the s = 3 picture centred | E at 144x128 / 72x64 | s = 1 / s = 2: 3,062,689 / 1,581,224 steps/s (306.3% / 158.1%), 118,601 / 147,629 B/s; the step budget ran out at 4.8 / 17.2 s | s = 3 at both: 857,598 steps/s (85.8%), 79,421 B/s (79.4%), busiest second 90,122 bytes; ran the full 60 s | kept: at s = 1 and s = 2 the game spends more steps than the playground refills |
 
-The before column of the last two rows is v1.0.0. The art that changed after the rows above it
-had moved B3 from 3,855 to 3,822 bytes a frame. A full repaint is a frame that writes at least
-as many spaces and blocks as the 48x43 screen has cells, counted in the stream of B3's
-arguments with `--render-out` in place of `--bench`: 6,880,839 bytes before and 4,372,393
-after.
+The before column of the two indexed colour rows is v1.0.0. The art that changed after the
+rows above them had moved B3 from 3,855 to 3,822 bytes a frame. A full repaint is a frame that
+writes at least as many spaces and blocks as the 48x43 screen has cells, counted in the stream
+of B3's arguments with `--render-out` in place of `--bench`: 6,880,839 bytes before and
+4,372,393 after.
 
 A probe of only the first 120 ticks, mostly the title screen, showed no change for the byte
 mask; E, which reaches the pipes, did. Every outcome above rests on E, B1, B3 or N.
